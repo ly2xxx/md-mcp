@@ -1,139 +1,144 @@
-"""MCP server implementation for markdown files."""
+"""FastMCP server implementation for markdown files."""
 
-import asyncio
-from typing import Any
-from mcp.server import Server
-from mcp.types import Resource, Tool, TextContent
-from mcp.server.stdio import stdio_server
+from pathlib import Path
+from typing import List
+from fastmcp import FastMCP
 
-from .scanner import MarkdownScanner
+from .scanner import MarkdownScanner, MarkdownFile
 
 
-def create_markdown_server(folder_path: str, server_name: str = "markdown-docs") -> Server:
-    """Create an MCP server that serves markdown files."""
+def create_markdown_server(folder_path: str, server_name: str = "markdown-docs") -> FastMCP:
+    """Create a FastMCP server that serves markdown files."""
     
     # Initialize scanner
     scanner = MarkdownScanner(folder_path)
     
-    # Create MCP server
-    server = Server(server_name)
+    # Create FastMCP instance
+    mcp = FastMCP(server_name)
     
-    @server.list_resources()
-    async def list_resources() -> list[Resource]:
-        """List all markdown files as resources."""
-        # Scan for files
-        files = scanner.scan()
-        
-        resources = []
-        for md_file in files:
-            # Load file to extract metadata
-            md_file.load()
-            
-            resource = Resource(
-                uri=md_file.to_uri(server_name),
-                name=md_file.name,
-                description=md_file.description,
-                mimeType="text/markdown"
-            )
-            resources.append(resource)
-        
-        return resources
+    # Scan files on startup
+    markdown_files: List[MarkdownFile] = []
     
-    @server.read_resource()
-    async def read_resource(uri: str) -> str:
-        """Read a specific markdown file."""
-        # Extract path from URI (md://server-name/path/to/file.md)
-        if not uri.startswith(f"md://{server_name}/"):
-            raise ValueError(f"Invalid URI: {uri}")
+    def ensure_scanned():
+        """Ensure files are scanned (lazy loading)."""
+        nonlocal markdown_files
+        if not markdown_files:
+            markdown_files = scanner.scan()
+            # Pre-load all files for metadata
+            for md_file in markdown_files:
+                if md_file.content is None:
+                    md_file.load()
+    
+    @mcp.resource(f"md://{server_name}/{{path}}")
+    def read_markdown(path: str) -> str:
+        """Read a markdown file by its relative path.
         
-        relative_path = uri[len(f"md://{server_name}/"):]
+        Args:
+            path: Relative path to the markdown file (e.g., "docs/guide.md")
+        
+        Returns:
+            Full markdown content of the file
+        """
+        ensure_scanned()
         
         # Find the file
-        md_file = scanner.get_file_by_relative_path(relative_path)
+        md_file = scanner.get_file_by_relative_path(path)
         if not md_file:
-            raise ValueError(f"File not found: {relative_path}")
+            raise ValueError(f"File not found: {path}")
         
         # Load and return content
-        content = md_file.load()
-        return content
-    
-    @server.list_tools()
-    async def list_tools() -> list[Tool]:
-        """List available tools."""
-        return [
-            Tool(
-                name="search_markdown",
-                description="Search for markdown files by content or filename",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Search query"
-                        }
-                    },
-                    "required": ["query"]
-                }
-            ),
-            Tool(
-                name="list_files",
-                description="List all markdown files",
-                inputSchema={
-                    "type": "object",
-                    "properties": {}
-                }
-            )
-        ]
-    
-    @server.call_tool()
-    async def call_tool(name: str, arguments: Any) -> list[TextContent]:
-        """Handle tool calls."""
-        if name == "search_markdown":
-            query = arguments.get("query", "")
-            results = scanner.search(query)
-            
-            if not results:
-                return [TextContent(
-                    type="text",
-                    text=f"No files found matching '{query}'"
-                )]
-            
-            # Format results
-            result_text = f"Found {len(results)} file(s) matching '{query}':\n\n"
-            for md_file in results[:10]:  # Limit to 10 results
-                result_text += f"- {md_file.relative_path}\n"
-                if md_file.description:
-                    result_text += f"  {md_file.description[:100]}...\n"
-            
-            return [TextContent(type="text", text=result_text)]
+        if md_file.content is None:
+            md_file.load()
         
-        elif name == "list_files":
-            files = scanner.scan()
-            
-            result_text = f"Found {len(files)} markdown file(s):\n\n"
-            for md_file in files:
-                result_text += f"- {md_file.relative_path}\n"
-            
-            return [TextContent(type="text", text=result_text)]
+        return md_file.content
+    
+    @mcp.tool()
+    def list_markdown_files() -> str:
+        """List all available markdown files in the folder.
         
-        else:
-            raise ValueError(f"Unknown tool: {name}")
+        Returns:
+            Formatted list of all markdown files with their paths and descriptions
+        """
+        ensure_scanned()
+        
+        if not markdown_files:
+            return "No markdown files found."
+        
+        result = f"Found {len(markdown_files)} markdown file(s):\n\n"
+        for md_file in markdown_files:
+            result += f"**{md_file.relative_path}**\n"
+            if md_file.description:
+                result += f"  {md_file.description}\n"
+            result += "\n"
+        
+        return result
     
-    return server
-
-
-async def run_server(folder_path: str, server_name: str = "markdown-docs"):
-    """Run the MCP server with stdio transport."""
-    server = create_markdown_server(folder_path, server_name)
+    @mcp.tool()
+    def search_markdown(query: str) -> str:
+        """Search for markdown files by content or filename.
+        
+        Args:
+            query: Search term to look for in filenames and content
+        
+        Returns:
+            List of matching files with snippets
+        """
+        ensure_scanned()
+        
+        results = scanner.search(query)
+        
+        if not results:
+            return f"No files found matching '{query}'"
+        
+        result = f"Found {len(results)} file(s) matching '{query}':\n\n"
+        for md_file in results[:10]:  # Limit to 10 results
+            result += f"**{md_file.relative_path}**\n"
+            if md_file.description:
+                result += f"  {md_file.description[:150]}...\n"
+            result += "\n"
+        
+        if len(results) > 10:
+            result += f"... and {len(results) - 10} more results\n"
+        
+        return result
     
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            server.create_initialization_options()
-        )
+    @mcp.tool()
+    def get_markdown_stats() -> str:
+        """Get statistics about the markdown collection.
+        
+        Returns:
+            Summary statistics (file count, total size, etc.)
+        """
+        ensure_scanned()
+        
+        total_files = len(markdown_files)
+        total_chars = sum(len(f.content or "") for f in markdown_files)
+        total_kb = total_chars / 1024
+        
+        # Group by subdirectory
+        dirs = {}
+        for md_file in markdown_files:
+            parent = str(md_file.relative_path.parent)
+            if parent == ".":
+                parent = "(root)"
+            dirs[parent] = dirs.get(parent, 0) + 1
+        
+        result = f"**Markdown Collection Stats**\n\n"
+        result += f"- Total files: {total_files}\n"
+        result += f"- Total size: {total_kb:.1f} KB\n"
+        result += f"- Average file size: {total_kb/total_files:.1f} KB\n\n"
+        
+        if len(dirs) > 1:
+            result += "**Files by directory:**\n"
+            for dir_name, count in sorted(dirs.items()):
+                result += f"- {dir_name}: {count} files\n"
+        
+        return result
+    
+    return mcp
 
 
 def main(folder_path: str, server_name: str = "markdown-docs"):
     """Main entry point for running the server."""
-    asyncio.run(run_server(folder_path, server_name))
+    mcp = create_markdown_server(folder_path, server_name)
+    mcp.run()
