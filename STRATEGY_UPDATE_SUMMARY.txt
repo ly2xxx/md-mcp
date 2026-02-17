@@ -1,0 +1,160 @@
+═══════════════════════════════════════════════════════════════
+  STRATEGY PARAMETER ADDED ✅
+═══════════════════════════════════════════════════════════════
+
+CHANGE: Added 'strategy' parameter to search_markdown()
+TIME: 30 minutes
+STATUS: ✅ Ready for testing
+
+═══════════════════════════════════════════════════════════════
+  WHAT CHANGED
+═══════════════════════════════════════════════════════════════
+
+Function Signature (BEFORE):
+  search_markdown(query: str, max_results: int = 5)
+
+Function Signature (AFTER):
+  search_markdown(
+      query: str, 
+      max_results: int = 5, 
+      strategy: str = "keyword"  # NEW!
+  )
+
+═══════════════════════════════════════════════════════════════
+  STRATEGY OPTIONS
+═══════════════════════════════════════════════════════════════
+
+[OK] "keyword" (Default)
+  - Current behavior (implemented)
+  - Fast deterministic search
+  - Exact keyword matching
+  - Relevance scoring
+
+[PLANNED] "semantic" (Future)
+  - Embedding-based search
+  - Understands synonyms
+  - Requires: pip install md-mcp[semantic]
+
+[PLANNED] "hybrid" (Future)
+  - Combines keyword + semantic
+  - Best of both worlds
+
+═══════════════════════════════════════════════════════════════
+  VALIDATION
+═══════════════════════════════════════════════════════════════
+
+Invalid strategy:
+  search_markdown("query", strategy="foobar")
+  → Returns error message with valid options
+
+Unimplemented strategy:
+  search_markdown("query", strategy="semantic")
+  → Returns helpful message explaining it's planned
+
+Valid strategy:
+  search_markdown("query", strategy="keyword")
+  → Works as expected ✅
+
+═══════════════════════════════════════════════════════════════
+  BACKWARD COMPATIBILITY
+═══════════════════════════════════════════════════════════════
+
+✅ YES - Fully backward compatible
+
+Old code still works:
+  search_markdown("docker")
+  → Uses default strategy="keyword" automatically
+
+New code can specify:
+  search_markdown("docker", strategy="keyword")
+  → Explicitly request keyword search
+
+═══════════════════════════════════════════════════════════════
+  TESTING
+═══════════════════════════════════════════════════════════════
+
+Run: cd C:\code\md-mcp && python test_strategy_param.py
+
+Results:
+  [OK] Strategy validation works
+  [OK] Keyword search works (default)
+  [OK] Output shows strategy used
+  [OK] Ready for comparison testing
+
+All tests pass! ✅
+
+═══════════════════════════════════════════════════════════════
+  OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════
+
+Search results now show:
+
+  Found 3 relevant snippet(s) for 'docker':
+  
+  **1. guide.md**
+     Section: Setup > Docker
+     Relevance: 2.50
+     
+     ```
+     ...snippet...
+     ```
+  
+  💡 Tip: Use read_file_section()...
+  🔍 Search strategy: keyword  <-- NEW!
+
+═══════════════════════════════════════════════════════════════
+  FOR COMPARISON TESTING
+═══════════════════════════════════════════════════════════════
+
+Test different queries:
+  1. search_markdown("API_KEY", strategy="keyword")
+     → Exact match
+  
+  2. search_markdown("docker setup", strategy="keyword")
+     → Keyword-based ranking
+  
+  3. Compare results with different max_results:
+     - search_markdown("query", max_results=3, strategy="keyword")
+     - search_markdown("query", max_results=10, strategy="keyword")
+
+Measure:
+  - Relevance of top results
+  - Token usage (context size)
+  - Response quality
+
+═══════════════════════════════════════════════════════════════
+  FILES CHANGED
+═══════════════════════════════════════════════════════════════
+
+Modified:
+  md_mcp/server.py
+    - Added strategy parameter
+    - Added validation logic
+    - Added strategy indicator in output
+
+New Documentation:
+  STRATEGY_PARAMETER.md         (Full details)
+  STRATEGY_UPDATE_SUMMARY.txt   (This file)
+  test_strategy_param.py        (Test suite)
+
+═══════════════════════════════════════════════════════════════
+  GIT STATUS
+═══════════════════════════════════════════════════════════════
+
+Modified:
+  M md_mcp/server.py
+
+New files:
+  ?? STRATEGY_PARAMETER.md
+  ?? STRATEGY_UPDATE_SUMMARY.txt
+  ?? test_strategy_param.py
+
+Not committed yet - ready for review!
+
+═══════════════════════════════════════════════════════════════
+  READY FOR YOUR TESTING! 🚀
+═══════════════════════════════════════════════════════════════
+
+Location: C:\code\md-mcp
+Status: Implemented, tested, documented
+Next: Test with real queries and compare results
