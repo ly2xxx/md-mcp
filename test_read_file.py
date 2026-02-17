@@ -4,7 +4,6 @@ import sys
 sys.path.insert(0, '.')
 
 from md_mcp.scanner import MarkdownScanner
-from md_mcp.server import create_markdown_server
 from pathlib import Path
 
 def test_read_file():
@@ -45,8 +44,7 @@ Use Molt Kanban board (Streamlit-based) for task management.
     
     test_file.write_text(test_content, encoding='utf-8')
     
-    # Create server
-    mcp = create_markdown_server(str(test_dir), "test-server")
+    # Test scanner directly
     
     # Get the read_file function
     # Since we can't directly call MCP tools, simulate the logic
