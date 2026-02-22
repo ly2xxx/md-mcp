@@ -182,7 +182,7 @@ List all available markdown files.
 
 **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
-### Antigravity (VS Code) Config Location (Manual)
+### Antigravity Config Location (Manual)
 
 **Windows:** `%USERPROFILE%\.gemini\antigravity\mcp_config.json`
 
@@ -193,6 +193,29 @@ Add your config and run **Developer: Reload Window** from the Command Palette (`
 ```json
 {
   "mcpServers": {
+    "my-notes": {
+      "command": "C:\\Python\\python.exe",
+      "args": [
+        "-m", "md_mcp.server_runner",
+        "--folder", "C:\\Users\\Yang\\notes",
+        "--name", "my-notes"
+      ]
+    }
+  }
+}
+```
+
+### VS Code MCP Config (Manual)
+
+For workspace-level tools, use a file at `.vscode/mcp.json`. See [official VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/customization/mcp-servers#_other-options-to-add-an-mcp-server).
+
+> [!IMPORTANT]
+> For workspace configs, the top-level key is `"servers"`, **not** `"mcpServers"`.
+
+Example `.vscode/mcp.json`:
+```json
+{
+  "servers": {
     "my-notes": {
       "command": "C:\\Python\\python.exe",
       "args": [
