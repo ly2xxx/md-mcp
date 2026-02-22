@@ -67,7 +67,7 @@ Use Molt Kanban board (Streamlit-based) for task management.
     # Cleanup
     test_file.unlink()
     
-    return True
+    assert True
 
 def test_file_not_found():
     """Test read_file with non-existent file."""
@@ -85,7 +85,7 @@ def test_file_not_found():
     else:
         print("[FAIL] Should return None")
     
-    return result is None
+    assert result is None
 
 if __name__ == "__main__":
     try:

@@ -281,6 +281,88 @@ class MarkdownChunker:
         
         return score
     
+    def search_hybrid(
+        self,
+        chunks: List[Chunk],
+        query: str,
+        semantic_index=None,
+        max_results: int = 10,
+        vector_weight: float = 0.7,
+        text_weight: float = 0.3,
+    ) -> List[SearchSnippet]:
+        """
+        Hybrid search combining semantic vector scores + keyword relevance scores.
+
+        Inspired by OpenClaw's hybrid.ts mergeHybridResults:
+            score = vector_weight * vector_score + text_weight * keyword_score
+
+        Falls back to keyword-only if semantic_index is None or unavailable.
+
+        Args:
+            chunks: All chunks to search
+            query: Natural language query
+            semantic_index: SemanticIndex instance (optional)
+            max_results: Max snippets to return
+            vector_weight: Weight for semantic score (0-1)
+            text_weight: Weight for keyword score (0-1)
+
+        Returns:
+            List of SearchSnippet sorted by combined score
+        """
+        # --- Keyword scores (normalized to 0-1) ---
+        keyword_scores: dict[str, float] = {}
+        max_kw = 0.0
+        for i, chunk in enumerate(chunks):
+            score = self.calculate_relevance(chunk, query)
+            keyword_scores[i] = score
+            if score > max_kw:
+                max_kw = score
+        # Normalize keyword scores
+        if max_kw > 0:
+            keyword_scores = {k: v / max_kw for k, v in keyword_scores.items()}
+
+        # --- Semantic scores ---
+        semantic_scores: dict[int, float] = {}
+        if semantic_index is not None and semantic_index.is_available() and semantic_index._embeddings:
+            sem_results = semantic_index.search(query, chunks, top_k=len(chunks))
+            # Build index → score mapping
+            chunk_to_score = {}
+            for chunk, score in sem_results:
+                # Find chunk index by identity
+                for i, c in enumerate(chunks):
+                    if c is chunk:
+                        chunk_to_score[i] = score
+                        break
+            semantic_scores = chunk_to_score
+
+        # --- Merge scores ---
+        results = []
+        query_lower = query.lower()
+        for i, chunk in enumerate(chunks):
+            kw_score = keyword_scores.get(i, 0.0)
+            sem_score = semantic_scores.get(i, 0.0)
+
+            if semantic_scores:
+                combined = vector_weight * sem_score + text_weight * kw_score
+            else:
+                combined = kw_score  # fallback: keyword only
+
+            # Only include if there's some signal
+            if combined > 0.01 or query_lower in chunk.content.lower():
+                snippet_text = self.extract_snippet(chunk, query)
+                results.append(SearchSnippet(
+                    file_path=chunk.file_path,
+                    header_path=chunk.header_path,
+                    snippet=snippet_text,
+                    full_chunk=chunk.content,
+                    match_score=combined,
+                    start_char=chunk.start_char,
+                    end_char=chunk.end_char,
+                ))
+
+        results.sort(key=lambda x: x.match_score, reverse=True)
+        return results[:max_results]
+
     def search_chunks(
         self,
         chunks: List[Chunk],

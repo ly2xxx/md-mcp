@@ -186,15 +186,23 @@ def search_markdown(query: str, max_results: int = 5) -> str:
     return formatted_snippets
 ```
 
-**Phase 2: Semantic Chunking (Optional)**
+**Phase 2: Semantic Chunking (Optional)** ✅ **COMPLETED 2026-02-22**
 ```bash
 # Add optional embedding-based search
-pip install sentence-transformers  # optional dependency
+pip install md-mcp[semantic]  # optional dependency
 
-md-mcp --folder ~/notes --enable-embeddings
-# Generates embeddings for all chunks
-# Semantic search instead of keyword search
+# Semantic search is now available via strategy parameter
+search_markdown(query, strategy="semantic")
+search_markdown(query, strategy="hybrid")  # Best: combines keyword + semantic
 ```
+
+**Implementation details:**
+- `md_mcp/semantic.py` - SemanticIndex class with sentence-transformers
+- L2-normalized embeddings (OpenClaw pattern)
+- Disk caching for embeddings (`.md-mcp-embeddings.json`)
+- Graceful degradation (works without sentence-transformers)
+- Hybrid search: `vector_weight * semantic + text_weight * keyword`
+- Lazy imports to avoid torch DLL crashes on broken installs
 
 **Phase 3: Ranking & Relevance**
 ```python

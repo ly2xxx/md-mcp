@@ -173,13 +173,20 @@ List all available markdown files.
 
 ## 🔧 Configuration
 
-### Claude Desktop Config Location
+### Claude Desktop Config Location (Automatic)
+
 
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 **Linux:** `~/.config/Claude/claude_desktop_config.json`
+
+### Antigravity (VS Code) Config Location (Manual)
+
+**Windows:** `%USERPROFILE%\.gemini\antigravity\mcp_config.json`
+
+Add your config and run **Developer: Reload Window** from the Command Palette (`Ctrl+Shift+P`).
 
 ### Config Entry Format
 
@@ -197,6 +204,14 @@ List all available markdown files.
   }
 }
 ```
+
+#### Sample Prompts to Test
+
+Once configured, try these prompts with your AI assistant:
+- "Search my-notes for 'Docker'"
+- "List markdown files in my-notes"
+- "What do my notes say about the system architecture?"
+![List markdown files](image/list-markdown-files.png)
 
 ---
 
@@ -249,11 +264,8 @@ If no frontmatter, first paragraph is used as description.
 
 ## 🚧 Roadmap
 
-- [ ] **v0.2:** File watching / live reload
-- [ ] **v0.3:** Semantic search with embeddings
-- [ ] **v0.4:** Multi-format support (txt, org, etc.)
-- [ ] **v0.5:** Smart chunking for large files
-- [ ] **v1.0:** GUI for managing servers
+- [ ] **v0.3:** Smart chunking for large files
+- [ ] **v0.4:** Semantic search with embeddings
 
 ---
 
