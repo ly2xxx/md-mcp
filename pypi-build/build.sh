@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/config.sh"
 
 # Display banner
-display_banner "Build NetShare Package" "$BLUE"
+display_banner "Build md-mcp Package" "$BLUE"
 
 # Check prerequisites
 if ! check_prerequisites; then

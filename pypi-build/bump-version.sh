@@ -72,7 +72,7 @@ echo ""
 echo "  pyproject.toml:"
 echo "    $CURRENT_VERSION → $NEW_VERSION"
 echo ""
-echo "  netshare/__init__.py:"
+echo "  md_mcp/__init__.py:"
 echo "    $CURRENT_VERSION → $NEW_VERSION"
 echo ""
 
@@ -99,7 +99,7 @@ else
 fi
 
 # Update __init__.py
-INIT_FILE="$PROJECT_ROOT/netshare/__init__.py"
+INIT_FILE="$PROJECT_ROOT/md_mcp/__init__.py"
 info "Updating $INIT_FILE..."
 
 if sed -i "s/__version__ = \"$CURRENT_VERSION\"/__version__ = \"$NEW_VERSION\"/" "$INIT_FILE"; then
@@ -127,10 +127,10 @@ echo ""
 banner "Next Steps:"
 echo ""
 echo "1. Review the changes:"
-echo "   git diff pyproject.toml netshare/__init__.py"
+echo "   git diff pyproject.toml md_mcp/__init__.py"
 echo ""
 echo "2. Commit the changes:"
-echo "   git add pyproject.toml netshare/__init__.py"
+echo "   git add pyproject.toml md_mcp/__init__.py"
 echo "   git commit -m \"Bump version to $NEW_VERSION\""
 echo ""
 echo "3. Build and deploy:"

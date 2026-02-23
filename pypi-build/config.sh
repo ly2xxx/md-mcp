@@ -129,7 +129,7 @@ get_version_from_toml() {
 # Extract version from __init__.py
 # Returns: version string
 get_version_from_init() {
-    grep '__version__ = ' "$PROJECT_ROOT/netshare/__init__.py" | sed 's/__version__ = "\(.*\)"/\1/'
+    grep '__version__ = ' "$PROJECT_ROOT/md_mcp/__init__.py" | sed 's/__version__ = "\(.*\)"/\1/'
 }
 
 # Check version consistency between pyproject.toml and __init__.py
@@ -147,7 +147,7 @@ check_version_consistency() {
         echo ""
         warning "Please update both files to the same version:"
         echo "  - $PROJECT_ROOT/pyproject.toml"
-        echo "  - $PROJECT_ROOT/netshare/__init__.py"
+        echo "  - $PROJECT_ROOT/md_mcp/__init__.py"
         return 2
     fi
 
@@ -204,7 +204,7 @@ check_required_files() {
 
     info "Checking required files..."
 
-    local files=("pyproject.toml" "README.md" "LICENSE" "MANIFEST.in" "netshare/__init__.py")
+    local files=("pyproject.toml" "README.md" "LICENSE" "md_mcp/__init__.py")
 
     for file in "${files[@]}"; do
         if [ -f "$PROJECT_ROOT/$file" ]; then
@@ -263,9 +263,9 @@ clean_build_artifacts() {
         success "Removed build/"
     fi
 
-    if [ -d "netshare.egg-info" ]; then
-        rm -rf netshare.egg-info/
-        success "Removed netshare.egg-info/"
+    if [ -d "md_mcp.egg-info" ]; then
+        rm -rf md_mcp.egg-info/
+        success "Removed md_mcp.egg-info/"
     fi
 
     find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
@@ -280,12 +280,12 @@ display_banner() {
     local color=$2
 
     local length=${#message}
-    local border=$(printf '═%.0s' $(seq 1 $((length + 4))))
+    local border=$(printf 'â•%.0s' $(seq 1 $((length + 4))))
 
     echo ""
-    echo -e "${color}╔${border}╗${NC}"
-    echo -e "${color}║  ${message}  ║${NC}"
-    echo -e "${color}╚${border}╝${NC}"
+    echo -e "${color}â•”${border}â•—${NC}"
+    echo -e "${color}â•‘  ${message}  â•‘${NC}"
+    echo -e "${color}â•š${border}â•${NC}"
     echo ""
 }
 

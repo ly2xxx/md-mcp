@@ -44,7 +44,7 @@ info "Testing installation from $REPO_NAME"
 
 # Create temporary venv
 TIMESTAMP=$(date +%s)
-VENV_DIR="/tmp/netshare-verify-$TIMESTAMP"
+VENV_DIR="/tmp/md-mcp-verify-$TIMESTAMP"
 
 echo ""
 info "Creating temporary virtual environment..."
@@ -61,11 +61,11 @@ fi
 source "$VENV_DIR/bin/activate"
 
 echo ""
-info "Installing netshare from $REPO_NAME..."
+info "Installing md-mcp from $REPO_NAME..."
 echo ""
 
 # Install package
-if pip install $PIP_ARGS netshare; then
+if pip install $PIP_ARGS md-mcp; then
     success "Installation completed"
 else
     error "Installation failed"
@@ -82,25 +82,25 @@ echo ""
 TESTS_PASSED=0
 TESTS_FAILED=0
 
-# Test 1: netshare --help
-info "Test 1: Running 'netshare --help'"
-if netshare --help > /dev/null 2>&1; then
-    success "netshare command works"
+# Test 1: md-mcp --help
+info "Test 1: Running 'md-mcp --help'"
+if md-mcp --help > /dev/null 2>&1; then
+    success "md-mcp command works"
     ((TESTS_PASSED++))
 else
-    error "netshare command failed"
+    error "md-mcp command failed"
     ((TESTS_FAILED++))
 fi
 
 echo ""
 
-# Test 2: python -m netshare --help
-info "Test 2: Running 'python -m netshare --help'"
-if python -m netshare --help > /dev/null 2>&1; then
-    success "python -m netshare works"
+# Test 2: python -m md_mcp --help
+info "Test 2: Running 'python -m md_mcp --help'"
+if python -m md_mcp --help > /dev/null 2>&1; then
+    success "python -m md_mcp works"
     ((TESTS_PASSED++))
 else
-    error "python -m netshare failed"
+    error "python -m md_mcp failed"
     ((TESTS_FAILED++))
 fi
 
@@ -108,7 +108,7 @@ echo ""
 
 # Test 3: Import and version check
 info "Test 3: Checking version"
-INSTALLED_VERSION=$(python -c "import netshare; print(netshare.__version__)" 2>/dev/null)
+INSTALLED_VERSION=$(python -c "import md_mcp; print(md_mcp.__version__)" 2>/dev/null)
 
 if [ -n "$INSTALLED_VERSION" ]; then
     success "Version imported successfully: $INSTALLED_VERSION"
@@ -133,24 +133,10 @@ echo ""
 info "Test 4: Verifying dependencies"
 DEPS_OK=true
 
-if python -c "import flask" 2>/dev/null; then
-    success "Flask is installed"
+if python -c "import fastmcp" 2>/dev/null; then
+    success "fastmcp is installed"
 else
-    error "Flask is not installed"
-    DEPS_OK=false
-fi
-
-if python -c "import qrcode" 2>/dev/null; then
-    success "qrcode is installed"
-else
-    error "qrcode is not installed"
-    DEPS_OK=false
-fi
-
-if python -c "import PIL" 2>/dev/null; then
-    success "Pillow is installed"
-else
-    error "Pillow is not installed"
+    error "fastmcp is not installed"
     DEPS_OK=false
 fi
 
