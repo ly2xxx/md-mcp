@@ -1,6 +1,6 @@
-# PyPI Build Automation for NetShare
+# PyPI Build Automation for md-mcp
 
-This directory contains automated scripts for building and deploying the NetShare package to PyPI and TestPyPI.
+This directory contains automated scripts for building and deploying the md-mcp package to PyPI and TestPyPI.
 
 ## Quick Start
 
@@ -68,7 +68,7 @@ chmod +x *.sh
 ./bump-version.sh patch
 
 # Commit the version change
-git add ../pyproject.toml ../netshare/__init__.py
+git add ../pyproject.toml ../md-mcp/__init__.py
 git commit -m "Bump version to 1.0.5"
 
 # Deploy to test first
@@ -133,7 +133,7 @@ Clean all build artifacts.
 
 ### `bump-version.sh`
 
-Update version numbers in both `pyproject.toml` and `netshare/__init__.py`.
+Update version numbers in both `pyproject.toml` and `md-mcp/__init__.py`.
 
 **Usage:**
 ```bash
@@ -178,7 +178,7 @@ Deploy to TestPyPI for testing.
 
 **Installation from TestPyPI:**
 ```bash
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ netshare
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ md-mcp
 ```
 
 ---
@@ -231,10 +231,10 @@ Test installation from TestPyPI or PyPI in a temporary virtual environment.
 
 **What it does:**
 1. Creates temporary venv
-2. Installs netshare from specified repository
+2. Installs md-mcp from specified repository
 3. Runs verification tests:
-   - `netshare --help`
-   - `python -m netshare --help`
+   - `md-mcp --help`
+   - `python -m md-mcp --help`
    - Version import check
    - Dependency verification
 4. Cleans up temporary environment
@@ -301,10 +301,10 @@ chmod 600 .env
 ./pypi-build/bump-version.sh patch
 
 # 3. Review changes
-git diff pyproject.toml netshare/__init__.py
+git diff pyproject.toml md-mcp/__init__.py
 
 # 4. Commit version bump
-git add pyproject.toml netshare/__init__.py
+git add pyproject.toml md-mcp/__init__.py
 git commit -m "Bump version to 1.0.5"
 
 # 5. Deploy to TestPyPI first
@@ -382,7 +382,7 @@ jobs:
 
 ### "Version mismatch" error
 
-**Problem:** Versions in `pyproject.toml` and `netshare/__init__.py` don't match.
+**Problem:** Versions in `pyproject.toml` and `md-mcp/__init__.py` don't match.
 
 **Solution:** Use `bump-version.sh` to update both files atomically:
 ```bash
@@ -422,7 +422,7 @@ pip install build twine
 
 **Solution:** Use both index URLs:
 ```bash
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ netshare
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ md-mcp
 ```
 
 The `--extra-index-url` allows pip to fetch dependencies from production PyPI.
@@ -467,8 +467,8 @@ pypi-build/
 
 ## Additional Resources
 
-- **PyPI Package Page:** https://pypi.org/project/netshare/
-- **TestPyPI Package Page:** https://test.pypi.org/project/netshare/
+- **PyPI Package Page:** https://pypi.org/project/md-mcp/
+- **TestPyPI Package Page:** https://test.pypi.org/project/md-mcp/
 - **PyPI Help:** https://pypi.org/help/
 - **Packaging Guide:** https://packaging.python.org/
 

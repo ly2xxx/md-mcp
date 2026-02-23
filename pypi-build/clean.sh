@@ -1,5 +1,5 @@
 #!/bin/bash
-# clean.sh - Clean build artifacts for netshare package
+# clean.sh - Clean build artifacts for md-mcp package
 
 # Get script directory and source config
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

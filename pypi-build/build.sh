@@ -1,5 +1,5 @@
 #!/bin/bash
-# build.sh - Build distribution packages for netshare
+# build.sh - Build distribution packages for md-mcp
 
 # Get script directory and source config
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

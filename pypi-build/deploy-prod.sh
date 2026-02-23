@@ -1,5 +1,5 @@
 #!/bin/bash
-# deploy-prod.sh - Deploy netshare to Production PyPI
+# deploy-prod.sh - Deploy md-mcp to Production PyPI
 # Supports: --dry-run (show what would happen without uploading)
 #           --yes (skip confirmation prompts for CI/CD)
 #
@@ -117,7 +117,7 @@ warning "You are about to deploy to PRODUCTION PyPI!"
 warning "This action cannot be undone!"
 
 echo ""
-info "Package: netshare"
+info "Package: md-mcp"
 info "Version: $VERSION"
 info "Target:  PyPI (https://pypi.org/)"
 
@@ -184,7 +184,7 @@ display_banner "🎉 Deployment Complete! 🎉" "$GREEN"
 
 echo ""
 success "Package uploaded to PyPI"
-info "View at: https://pypi.org/project/netshare/$VERSION/"
+info "View at: https://pypi.org/project/md-mcp/$VERSION/"
 
 echo ""
 
@@ -198,7 +198,7 @@ banner "Installation Instructions:"
 echo ""
 echo "Users can now install with:"
 echo ""
-echo -e "${GREEN}pip install netshare${NC}"
+echo -e "${GREEN}pip install md-mcp${NC}"
 echo ""
 
 info "To verify the installation, run:"
@@ -206,7 +206,7 @@ echo "  ./pypi-build/verify-install.sh prod"
 
 echo ""
 banner "Next Steps:"
-echo "1. Verify the package page: https://pypi.org/project/netshare/"
+echo "1. Verify the package page: https://pypi.org/project/md-mcp/"
 echo "2. Test installation: ./pypi-build/verify-install.sh prod"
 echo "3. Update README.md or documentation if needed"
 echo "4. Announce the release!"
