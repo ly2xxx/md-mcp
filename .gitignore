@@ -31,3 +31,7 @@ Thumbs.db
 
 # Package
 *.egg
+
+# PyPI build automation
+pypi-build/.env
+pypi-build/logs/
