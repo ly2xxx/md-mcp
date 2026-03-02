@@ -1,7 +1,7 @@
 """Smart chunking for markdown files to prevent context bloat."""
 
 import re
-from typing import List, Optional, Tuple
+from typing import List
 from dataclasses import dataclass
 
 

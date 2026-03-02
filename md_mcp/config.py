@@ -113,8 +113,8 @@ def add_markdown_server(server_name: str, folder_path: str) -> bool:
         if project_root:
             print(f"  Mode: Local development (from {project_root})", file=sys.stderr)
         else:
-            print(f"  Mode: Published package", file=sys.stderr)
-        print(f"  Using uvx (path-independent, auto-managed)", file=sys.stderr)
+            print("  Mode: Published package", file=sys.stderr)
+        print("  Using uvx (path-independent, auto-managed)", file=sys.stderr)
         return True
     
     return False
@@ -125,7 +125,7 @@ def remove_markdown_server(server_name: str) -> bool:
     config = load_claude_config()
     
     if "mcpServers" not in config:
-        print(f"No MCP servers configured", file=sys.stderr)
+        print("No MCP servers configured", file=sys.stderr)
         return False
     
     if server_name not in config["mcpServers"]:

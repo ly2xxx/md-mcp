@@ -50,6 +50,7 @@ dev-dependencies = [
     "pytest>=7.0",
     "black>=23.0",
     "mypy>=1.0",
+    "ruff>=0.15.4",
 ]
 
 [tool.hatchling.build.targets.wheel]
