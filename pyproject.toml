@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "md-mcp"
 version = "0.4.0"
 description = "Instantly expose markdown folders as MCP servers for Claude Desktop"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [
     {name = "Yang Li", email = "victorlee2012.vl@gmail.com"}
 ]
@@ -18,14 +18,13 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
-    "fastmcp[cli]>=0.1.0",
+    "fastmcp>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -46,5 +45,12 @@ Homepage = "https://github.com/ly2xxx/md-mcp"
 Repository = "https://github.com/ly2xxx/md-mcp.git"
 Issues = "https://github.com/ly2xxx/md-mcp/issues"
 
-[tool.setuptools]
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "mypy>=1.0",
+]
+
+[tool.hatchling.build.targets.wheel]
 packages = ["md_mcp"]

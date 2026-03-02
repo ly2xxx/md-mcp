@@ -8,17 +8,38 @@ A lightweight Python library that makes your markdown documentation, notes, and 
 
 ## 🚀 Quick Start
 
-### Install
+### Install from PyPI (Once Published)
 
 ```bash
-pip install -e .
+# Using uvx (recommended - no installation needed!)
+uvx md-mcp --folder ~/Documents/notes --name "My Notes"
+
+# Or install globally with UV
+uv tool install md-mcp
+
+# Then use
+md-mcp --folder ~/Documents/notes --name "My Notes"
+```
+
+### Install for Development
+
+```bash
+# Clone the repository
+git clone https://github.com/ly2xxx/md-mcp.git
+cd md-mcp
+
+# Install dependencies (UV creates .venv automatically)
+uv sync
+
+# Run locally
+uv run md-mcp --folder ~/Documents/notes --name "My Notes"
 ```
 
 ### Basic Usage
 
 ```bash
 # Expose a folder of markdown files
-md-mcp --folder ~/Documents/notes --name "My Notes"
+uvx md-mcp --folder ~/Documents/notes --name "My Notes"
 
 # That's it! Restart Claude Desktop and it's available.
 ```
@@ -190,6 +211,43 @@ Add your config and run **Developer: Reload Window** from the Command Palette (`
 
 ### Config Entry Format
 
+**Recommended: Using `uvx` (Path-Independent)**
+
+```json
+{
+  "mcpServers": {
+    "my-notes": {
+      "command": "uvx",
+      "args": [
+        "md-mcp",
+        "--folder", "~\\users\\notes",
+        "--name", "my-notes"
+      ]
+    }
+  }
+}
+```
+
+**For Local Development (Unpublished)**
+
+```json
+{
+  "mcpServers": {
+    "my-notes": {
+      "command": "uvx",
+      "args": [
+        "--from", "C:/code/md-mcp",
+        "md-mcp",
+        "--folder", "~\\users\\notes",
+        "--name", "my-notes"
+      ]
+    }
+  }
+}
+```
+
+**Legacy: Using Python Path (Not Recommended)**
+
 ```json
 {
   "mcpServers": {
@@ -197,13 +255,15 @@ Add your config and run **Developer: Reload Window** from the Command Palette (`
       "command": "C:\\Python\\python.exe",
       "args": [
         "-m", "md_mcp.server_runner",
-        "--folder", "C:\\Users\\Yang\\notes",
+        "--folder", "~\\users\\notes",
         "--name", "my-notes"
       ]
     }
   }
 }
 ```
+
+> **Why `uvx` is better:** No hardcoded paths, works even if you rename/delete `.venv`, auto-manages dependencies, portable across machines.
 
 ### VS Code MCP Config (Manual)
 
@@ -212,15 +272,34 @@ For workspace-level tools, use a file at `.vscode/mcp.json`. See [official VS Co
 > [!IMPORTANT]
 > For workspace configs, the top-level key is `"servers"`, **not** `"mcpServers"`.
 
+**Recommended: Using `uvx`**
+
 Example `.vscode/mcp.json`:
 ```json
 {
   "servers": {
     "my-notes": {
-      "command": "C:\\Python\\python.exe",
+      "command": "uvx",
       "args": [
-        "-m", "md_mcp.server_runner",
-        "--folder", "C:\\Users\\Yang\\notes",
+        "md-mcp",
+        "--folder", "~\\users\\notes",
+        "--name", "my-notes"
+      ]
+    }
+  }
+}
+```
+
+**For Local Development:**
+```json
+{
+  "servers": {
+    "my-notes": {
+      "command": "uvx",
+      "args": [
+        "--from", "C:/code/md-mcp",
+        "md-mcp",
+        "--folder", "~\\users\\notes",
         "--name", "my-notes"
       ]
     }
@@ -375,20 +454,38 @@ ls -la ~/notes
 ```bash
 git clone https://github.com/ly2xxx/md-mcp.git
 cd md-mcp
-pip install -e ".[dev]"
+
+# Install all dependencies (creates .venv automatically)
+uv sync --extra dev
 ```
 
 ### Run Tests
 
 ```bash
-pytest
+# No activation needed - uv run handles it!
+uv run pytest
+
+# Run specific test
+uv run pytest test_chunking.py
 ```
 
 ### Format Code
 
 ```bash
-black md_mcp/
+uv run black md_mcp/
 ```
+
+### Run Locally
+
+```bash
+# Test the server
+uv run md-mcp --folder ~/test-notes --name "test"
+
+# Or as module
+uv run python -m md_mcp --folder ~/test-notes
+```
+
+**For complete development guide, see [DEVELOPMENT.md](DEVELOPMENT.md)**
 
 ---
 

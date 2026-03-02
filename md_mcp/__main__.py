@@ -86,12 +86,12 @@ Examples:
     if args.list:
         servers = list_markdown_servers()
         if not servers:
-            print("No md-mcp servers configured")
+            print("No md-mcp servers configured", file=sys.stderr)
             return 0
         
-        print(f"Configured md-mcp servers ({len(servers)}):")
+        print(f"Configured md-mcp servers ({len(servers)}):", file=sys.stderr)
         for name in servers.keys():
-            print(f"  • {name}")
+            print(f"  • {name}", file=sys.stderr)
         return 0
     
     if args.remove:
@@ -105,17 +105,17 @@ Examples:
         # Interactive mode
         folder = input("Enter folder path containing markdown files: ").strip()
         if not folder:
-            print("Error: No folder specified")
+            print("Error: No folder specified", file=sys.stderr)
             return 1
     
     # Validate folder
     folder_path = Path(folder).expanduser().resolve()
     if not folder_path.exists():
-        print(f"Error: Folder does not exist: {folder}")
+        print(f"Error: Folder does not exist: {folder}", file=sys.stderr)
         return 1
     
     if not folder_path.is_dir():
-        print(f"Error: Path is not a directory: {folder}")
+        print(f"Error: Path is not a directory: {folder}", file=sys.stderr)
         return 1
     
     # Determine server name
@@ -123,43 +123,43 @@ Examples:
     if not server_name:
         # Use folder name as default
         server_name = folder_path.name
-        print(f"Using folder name as server name: {server_name}")
+        print(f"Using folder name as server name: {server_name}", file=sys.stderr)
     
     # Scan files
     try:
         scanner = MarkdownScanner(str(folder_path))
         files = scanner.scan()
         
-        print(f"\nFound {len(files)} markdown file(s) in {folder_path}")
+        print(f"\nFound {len(files)} markdown file(s) in {folder_path}", file=sys.stderr)
         
         if args.scan:
             # Dry run - just show what would be exposed
-            print("\nFiles that would be exposed:")
+            print("\nFiles that would be exposed:", file=sys.stderr)
             for md_file in files[:10]:  # Show first 10
-                print(f"  • {md_file.relative_path}")
+                print(f"  • {md_file.relative_path}", file=sys.stderr)
             
             if len(files) > 10:
-                print(f"  ... and {len(files) - 10} more")
+                print(f"  ... and {len(files) - 10} more", file=sys.stderr)
             
             return 0
         
         # Add to Claude Desktop config
-        print(f"\nAdding server '{server_name}' to Claude Desktop...")
+        print(f"\nAdding server '{server_name}' to Claude Desktop...", file=sys.stderr)
         success = add_markdown_server(server_name, str(folder_path))
         
         if success:
-            print("\n✓ Server configured successfully!")
-            print("\nNext steps:")
-            print("  1. Restart Claude Desktop")
-            print(f"  2. Look for '{server_name}' in the MCP servers dropdown")
-            print("  3. Your markdown files will be available as context")
+            print("\n✓ Server configured successfully!", file=sys.stderr)
+            print("\nNext steps:", file=sys.stderr)
+            print("  1. Restart Claude Desktop", file=sys.stderr)
+            print(f"  2. Look for '{server_name}' in the MCP servers dropdown", file=sys.stderr)
+            print("  3. Your markdown files will be available as context", file=sys.stderr)
             return 0
         else:
-            print("\n✗ Failed to configure server")
+            print("\n✗ Failed to configure server", file=sys.stderr)
             return 1
     
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
 

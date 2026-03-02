@@ -13,6 +13,9 @@ dist/
 build/
 .eggs/
 
+# UV: Keep uv.lock committed for reproducibility
+# (it's like package-lock.json or Cargo.lock)
+
 # Testing
 .pytest_cache/
 .coverage
