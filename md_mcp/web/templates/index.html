@@ -413,6 +413,145 @@
         .btn.loading .btn-text {
             display: none;
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-container {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.show .modal-container {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #1e293b;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #64748b;
+        }
+
+        .close-btn:hover {
+            color: #0f172a;
+        }
+
+        .modal-path {
+            padding: 15px 20px;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .modal-path input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+        }
+
+        .modal-path button {
+            padding: 8px 12px;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: #fff;
+            min-height: 300px;
+        }
+
+        .fs-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.2s;
+            user-select: none;
+        }
+
+        .fs-item:hover {
+            background: #f1f5f9;
+        }
+
+        .fs-item .icon {
+            font-size: 1.5em;
+            margin-right: 15px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .fs-item .name {
+            flex: 1;
+            color: #334155;
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        .fs-item.file .name {
+            color: #64748b;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
     </style>
 </head>
 
@@ -442,7 +581,7 @@
                     <div class="flex-row" style="align-items: center; gap: 10px; margin-bottom: 2px;">
                         <input type="text" id="folder-path" placeholder="/path/to/your/markdown/notes"
                             style="flex: 1; margin: 0;">
-                        <button class="btn btn-secondary" onclick="browseFolder()" title="Browse local folders"
+                        <button class="btn btn-secondary" onclick="openWebBrowser()" title="Browse local folders"
                             style="flex-shrink: 0; padding: 12px 20px;">
                             📁 Browse
                         </button>
@@ -489,6 +628,28 @@
         <span id="msg-text"></span>
     </div>
 
+    <!-- Custom Web Browser Modal -->
+    <div class="modal-overlay" id="browser-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>Select Markdown Folder</h3>
+                <button class="close-btn" onclick="closeWebBrowser()">&times;</button>
+            </div>
+            <div class="modal-path">
+                <input type="text" id="browser-path-input" onkeyup="if(event.key === 'Enter') navigateToInputPath()">
+                <button onclick="navigateToInputPath()">Go</button>
+            </div>
+            <div class="modal-body" id="browser-body">
+                <!-- Items populated here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeWebBrowser()">Cancel</button>
+                <button class="btn btn-primary" onclick="selectCurrentFolder()" style="padding: 10px 20px;">✅ Select
+                    This Folder</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // State
         let servers = [];
@@ -533,31 +694,95 @@
             }, 5000);
         }
 
-        // Handle Browse folder dialog calling the backend API
-        async function browseFolder() {
+        // Custom Web Browser Logic
+        let currentBrowserPath = '';
+
+        function openWebBrowser() {
+            const overlay = document.getElementById('browser-modal');
+            overlay.classList.add('show');
+
+            // Try to start at the currently typed path, or fallback to root
+            let startPath = document.getElementById('folder-path').value.trim();
+            loadBrowserPath(startPath);
+        }
+
+        function closeWebBrowser() {
+            document.getElementById('browser-modal').classList.remove('show');
+        }
+
+        async function loadBrowserPath(path) {
+            const body = document.getElementById('browser-body');
+            body.innerHTML = '<div style="text-align:center; padding: 40px; color:#94a3b8;">Loading...</div>';
+
             try {
-                const response = await fetch('/api/browse-folder');
+                const response = await fetch(`/api/fs/list?path=${encodeURIComponent(path)}`);
                 const data = await response.json();
 
-                if (data.success && data.path) {
-                    document.getElementById('folder-path').value = data.path;
-                    checkFolderPreview(data.path);
+                if (data.success) {
+                    currentBrowserPath = data.path;
+                    document.getElementById('browser-path-input').value = currentBrowserPath;
 
-                    // Auto-fill server name if it's currently empty
-                    const nameInput = document.getElementById('server-name');
-                    if (!nameInput.value.trim()) {
-                        // Extract base name from path simply in JS for preview
-                        const segments = data.path.split(/[/\\]/);
-                        const baseName = segments.pop() || segments.pop();
-                        if (baseName) {
-                            nameInput.value = baseName;
-                        }
+                    let html = '';
+
+                    const escapePath = (p) => p ? p.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
+                    const escapeHtml = (s) => s ? s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
+
+                    // Up directory
+                    if (data.parent !== undefined && currentBrowserPath !== '') {
+                        html += `
+                            <div class="fs-item" onclick="loadBrowserPath('${escapePath(data.parent)}')">
+                                <span class="icon">📁</span>
+                                <span class="name">.. (Up a folder)</span>
+                            </div>
+                        `;
                     }
+
+                    if (data.items.length === 0) {
+                        html += '<div style="text-align:center; padding: 40px; color:#94a3b8;">Folder is empty</div>';
+                    } else {
+                        data.items.forEach(item => {
+                            const icon = item.is_dir ? '📁' : '📄';
+                            const cssClass = item.is_dir ? 'dir' : 'file';
+                            const clickAction = item.is_dir ? `onclick="loadBrowserPath('${escapePath(item.path)}')"` : '';
+
+                            html += `
+                                <div class="fs-item ${cssClass}" ${clickAction}>
+                                    <span class="icon">${icon}</span>
+                                    <span class="name">${escapeHtml(item.name)}</span>
+                                </div>
+                            `;
+                        });
+                    }
+
+                    body.innerHTML = html;
+                } else {
+                    body.innerHTML = `<div style="text-align:center; padding: 40px; color:#ef4444;">Error: ${data.message}</div>`;
                 }
             } catch (e) {
-                console.error('Failed to open folder browser:', e);
-                showMessage('Failed to open folder browser. Please type the path manually.', 'error');
+                body.innerHTML = `<div style="text-align:center; padding: 40px; color:#ef4444;">Network error</div>`;
             }
+        }
+
+        function navigateToInputPath() {
+            const path = document.getElementById('browser-path-input').value.trim();
+            loadBrowserPath(path);
+        }
+
+        function selectCurrentFolder() {
+            if (currentBrowserPath) {
+                document.getElementById('folder-path').value = currentBrowserPath;
+                checkFolderPreview(currentBrowserPath);
+
+                const nameInput = document.getElementById('server-name');
+                if (!nameInput.value.trim()) {
+                    const segments = currentBrowserPath.split(/[/\\]/);
+                    const baseName = segments.pop() || segments.pop();
+                    if (baseName) {
+                        nameInput.value = baseName;
+                    }
+                }
+            }
+            closeWebBrowser();
         }
 
         async function checkFolderPreview(path) {

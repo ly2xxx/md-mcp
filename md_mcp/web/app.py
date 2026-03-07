@@ -51,41 +51,64 @@ def index():
                          md_mcp_version=get_md_mcp_version())
 
 
-@app.route('/api/browse-folder', methods=['GET'])
-def api_browse_folder():
-    """Open native file dialog to select a folder"""
+@app.route('/api/fs/list', methods=['GET'])
+def api_fs_list():
+    """List directories and markdown files for the web-based file browser"""
     try:
-        import tkinter as tk
-        from tkinter import filedialog
+        req_path = request.args.get('path', '').strip()
         
-        # Create a root window and hide it
-        root = tk.Tk()
-        root.withdraw()
-        
-        # Make it appear on top of other windows
-        root.attributes('-topmost', True)
-        
-        folder_path = filedialog.askdirectory(
-            title="Select Markdown Folder"
-        )
-        
-        # Destroy the root window
-        root.destroy()
-        
-        if folder_path:
+        # Handle Windows root (Drive letters)
+        if os.name == 'nt' and not req_path:
+            import string
+            import ctypes
+            drives = []
+            bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+            for i, letter in enumerate(string.ascii_uppercase):
+                if bitmask & (1 << i):
+                    drives.append(f"{letter}:\\")
             return jsonify({
                 'success': True,
-                'path': folder_path
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'No folder selected'
+                'path': '',
+                'parent': '',
+                'items': [{'name': d, 'path': d, 'is_dir': True} for d in drives]
             })
             
+        if not req_path:
+            req_path = os.path.abspath(os.sep)
+            
+        if not os.path.exists(req_path) or not os.path.isdir(req_path):
+            return jsonify({'success': False, 'message': 'Directory does not exist'})
+            
+        items = []
+        try:
+            for entry in os.scandir(req_path):
+                if entry.name.startswith('.'):
+                    continue
+                is_dir = entry.is_dir()
+                if is_dir or entry.name.lower().endswith('.md'):
+                    items.append({
+                        'name': entry.name,
+                        'path': entry.path,
+                        'is_dir': is_dir
+                    })
+        except (PermissionError, OSError):
+            pass # Skip folders we can't read
+            
+        items.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
+        
+        parent = os.path.dirname(req_path)
+        if parent == req_path:
+            parent = '' if os.name == 'nt' else ''
+            
+        return jsonify({
+            'success': True,
+            'path': req_path,
+            'parent': parent,
+            'items': items
+        })
     except Exception as e:
-        logger.error(f"Error opening folder browser: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logger.error(f"Error listing fs: {e}")
+        return jsonify({'success': False, 'message': str(e)})
 
 
 @app.route('/api/folder-preview', methods=['GET'])
