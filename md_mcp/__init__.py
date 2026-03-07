@@ -1,6 +1,6 @@
 """md-mcp: Instantly expose markdown folders as MCP servers."""
 
-__version__ = "0.4.0"
+__version__ = "1.0.0"
 
 from .scanner import MarkdownScanner
 from .chunking import MarkdownChunker
