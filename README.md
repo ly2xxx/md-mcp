@@ -454,3 +454,4 @@ Issues: https://github.com/ly2xxx/md-mcp/issues
 **Version:** 0.1.0 (MVP)
 
 🚀 **Just point at a folder and go!**
+![point and go](demo/point-and-go.png)

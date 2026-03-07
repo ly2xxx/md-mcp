@@ -88,6 +88,37 @@ def api_browse_folder():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/folder-preview', methods=['GET'])
+def api_folder_preview():
+    """Return a preview of markdown files in a selected folder"""
+    try:
+        folder_path = request.args.get('path', '').strip()
+        if not folder_path or not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+            return jsonify({'success': False, 'count': 0, 'preview': []})
+        
+        md_files = []
+        for root, _, files in os.walk(folder_path):
+            for file in files:
+                if file.lower().endswith('.md'):
+                    md_files.append(file)
+                    if len(md_files) >= 100:  # Cap at 100 to avoid long scans
+                        break
+            if len(md_files) >= 100:
+                break
+                
+        total_count = len(md_files)
+        preview_names = md_files[:100]  # Just show the first 3 as a preview
+        
+        return jsonify({
+            'success': True,
+            'count': total_count,
+            'preview': preview_names
+        })
+    except Exception as e:
+        logger.error(f"Error previewing folder: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/api/servers', methods=['GET'])
 def api_list_servers():
     """List all configured md-mcp servers"""
