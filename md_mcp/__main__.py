@@ -22,6 +22,7 @@ Examples:
   md-mcp --list
   md-mcp --remove "My Notes"
   md-mcp --status
+  md-mcp --web          # Launch the web interface
         """
     )
     
@@ -76,9 +77,20 @@ Examples:
         help="Scan folder and show what would be exposed (dry run)"
     )
     
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Launch the web UI"
+    )
+    
     args = parser.parse_args()
     
     # Handle different commands
+    if args.web:
+        from .web.app import start_web_server
+        start_web_server()
+        return 0
+        
     if args.status:
         show_status()
         return 0

@@ -25,7 +25,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastmcp[cli]>=0.1.0",
+    "fastmcp>=0.1.0",
+    "flask>=2.0.0",
+    "flask-cors>=3.0.0",
 ]
 
 [project.optional-dependencies]

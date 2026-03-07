@@ -32,6 +32,7 @@ md-mcp --folder ~/Documents/notes --name "My Notes"
 - **Metadata Extraction**: Parses frontmatter and descriptions
 - **Search Support**: Built-in search across all files
 - **Claude Integration**: Automatically updates Claude Desktop config
+- **Web Interface**: Easy-to-use dashboard for non-technical users
 
 ---
 
@@ -58,6 +59,13 @@ md-mcp --folder ~/research/papers-md --name "Research"
 ---
 
 ## 📖 Usage
+
+### Web Interface (easiest way to use)
+
+```bash
+md-mcp --web
+# Launches a dashboard to manage all your markdown servers
+```
 
 ### Add a Markdown Folder
 
@@ -106,6 +114,8 @@ md-mcp --remove "My Docs"
 md-mcp
 # Prompts for folder path
 ```
+
+
 
 ---
 

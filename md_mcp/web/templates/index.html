@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>md-mcp Web UI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            /* Stunning violet to peach gradient inspired by modern aesthetics */
+            background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: rgba(255, 255, 255, 0.95);
+            /* Glassmorphism setup */
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            border-bottom: 5px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Ambient shimmer effect in header */
+        .header::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+            animation: rotate 20s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes rotate {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .header h1 {
+            font-size: 2.8em;
+            margin-bottom: 10px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            text-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .header p {
+            font-size: 1.15em;
+            opacity: 0.95;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .content {
+            padding: 50px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .step {
+            padding: 35px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+            border: 1px solid #eaeaea;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Subtle left border accent */
+        .step::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(to bottom, #a18cd1, #fbc2eb);
+        }
+
+        .step h2 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1.5em;
+            font-weight: 700;
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            font-weight: 800;
+            box-shadow: 0 4px 10px rgba(161, 140, 209, 0.4);
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .input-group input[type="text"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1.05em;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+            color: #1a202c;
+        }
+
+        .input-group input[type="text"]:focus {
+            outline: none;
+            border-color: #a18cd1;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(161, 140, 209, 0.2);
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.05em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            /* bouncy transition */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(to right, #a18cd1, #fbc2eb);
+            color: white;
+            box-shadow: 0 4px 15px rgba(161, 140, 209, 0.4);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(161, 140, 209, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        .btn-secondary {
+            background: #edf2f7;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: #fee2e2;
+            color: #ef4444;
+            border: 1px solid #fecaca;
+        }
+
+        .btn-danger:hover {
+            background: #fecaca;
+            color: #b91c1c;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Two column layout for input group */
+        .flex-row {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .flex-grow {
+            flex: 1;
+        }
+
+        .server-list {
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .server-item {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+
+        .server-item:hover {
+            border-color: #cbd5e1;
+            background: #f1f5f9;
+        }
+
+        .server-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .server-name {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .server-path {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            color: #718096;
+            font-size: 0.9em;
+            word-break: break-all;
+            background: #edf2f7;
+            padding: 6px 10px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 2px dashed #e2e8f0;
+            font-weight: 500;
+        }
+
+        .alert {
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+            animation: fadeInDown 0.4s ease;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-info {
+            background: #eff6ff;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 25px;
+            color: #718096;
+            font-size: 0.95em;
+            border-top: 1px solid #edf2f7;
+            background: #f8fafc;
+        }
+
+        .footer a {
+            color: #a18cd1;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        #message {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            padding: 16px 24px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            display: none;
+            z-index: 1000;
+            max-width: 450px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #message.show {
+            transform: translateX(0);
+        }
+
+        #message.success {
+            background: #f0fdf4;
+            color: #166534;
+            border-left: 5px solid #22c55e;
+        }
+
+        #message.error {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 5px solid #ef4444;
+        }
+
+        /* Add some loading animations */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #a18cd1;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn.loading .loader {
+            display: inline-block;
+        }
+
+        .btn.loading .btn-text {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✨ md-mcp Dashboard</h1>
+            <p>Mount any local markdown folder straight to Claude Desktop in seconds</p>
+        </div>
+
+        <div class="content">
+            <!-- Step 1: Add a Server -->
+            <div class="step">
+                <h2>
+                    <span class="step-number">1</span>
+                    Mount a Markdown Folder
+                </h2>
+
+                <div class="alert alert-info">
+                    <span>💡</span>
+                    <span>This will instantly make your markdown files searchable and readable by Claude without any
+                        intermediate extraction phase.</span>
+                </div>
+
+                <div class="flex-row">
+                    <div class="input-group flex-grow">
+                        <label for="folder-path">Folder Path:</label>
+                        <input type="text" id="folder-path" placeholder="/path/to/your/markdown/notes">
+                    </div>
+                    <div class="input-group">
+                        <button class="btn btn-secondary" onclick="browseFolder()" title="Browse local folders"
+                            style="margin-bottom: 2px;">
+                            📁 Browse
+                        </button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="server-name">Server Name (optional):</label>
+                    <input type="text" id="server-name"
+                        placeholder="Leave empty to use the folder name (e.g., 'notes')">
+                </div>
+
+                <button class="btn btn-primary" id="add-btn" onclick="addServer()" style="width: 100%;">
+                    <span class="btn-text">🚀 Add to Claude Desktop</span>
+                    <div class="loader"></div>
+                </button>
+            </div>
+
+            <!-- Step 2: Manage Servers -->
+            <div class="step">
+                <h2>
+                    <span class="step-number">2</span>
+                    Manage Connected Servers
+                </h2>
+
+                <div id="server-list-container" class="server-list">
+                    <div class="empty-state">Loading your configuration...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Built with 💜 using <strong>md-mcp {% if md_mcp_version != 'unknown' %}v{{ md_mcp_version }}{% endif
+                %}</strong> |
+            <a href="https://github.com/ly2xxx/md-mcp" target="_blank">Documentation</a>
+        </div>
+    </div>
+
+    <!-- Toast Message -->
+    <div id="message" style="display: none;">
+        <span id="msg-icon"></span>
+        <span id="msg-text"></span>
+    </div>
+
+    <script>
+        // State
+        let servers = [];
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchServers();
+        });
+
+        // Show toast notification 
+        function showMessage(text, type = 'success') {
+            const msg = document.getElementById('message');
+            const msgText = document.getElementById('msg-text');
+            const msgIcon = document.getElementById('msg-icon');
+
+            // display flex is needed to override inline none, but class .show does the transform
+            msg.style.display = 'flex';
+            msgText.textContent = text;
+            msg.className = type; // success or error
+            msgIcon.textContent = type === 'success' ? '✅' : '❌';
+
+            // trigger reflow
+            void msg.offsetWidth;
+            msg.classList.add('show');
+
+            setTimeout(() => {
+                msg.classList.remove('show');
+                // Wait for transition to finish before hiding completely
+                setTimeout(() => {
+                    msg.style.display = 'none';
+                }, 400);
+            }, 5000);
+        }
+
+        // Handle Browse folder dialog calling the backend API
+        async function browseFolder() {
+            try {
+                const response = await fetch('/api/browse-folder');
+                const data = await response.json();
+
+                if (data.success && data.path) {
+                    document.getElementById('folder-path').value = data.path;
+
+                    // Auto-fill server name if it's currently empty
+                    const nameInput = document.getElementById('server-name');
+                    if (!nameInput.value.trim()) {
+                        // Extract base name from path simply in JS for preview
+                        const segments = data.path.split(/[/\\]/);
+                        const baseName = segments.pop() || segments.pop();
+                        if (baseName) {
+                            nameInput.value = baseName;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to open folder browser:', e);
+                showMessage('Failed to open folder browser. Please type the path manually.', 'error');
+            }
+        }
+
+        // Add a new server
+        async function addServer() {
+            const folderInput = document.getElementById('folder-path');
+            const nameInput = document.getElementById('server-name');
+            const folder = folderInput.value.trim();
+            const name = nameInput.value.trim();
+            const btn = document.getElementById('add-btn');
+
+            if (!folder) {
+                showMessage('Please select or specify a folder path first.', 'error');
+                return;
+            }
+
+            // UI loading state
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/servers/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folder, name })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    folderInput.value = '';
+                    nameInput.value = '';
+
+                    // Refresh the list
+                    fetchServers();
+                } else {
+                    showMessage(data.message || 'Error adding server.', 'error');
+                }
+            } catch (e) {
+                console.error('Error:', e);
+                showMessage('Network error while adding server.', 'error');
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        // Fetching list of servers
+        async function fetchServers() {
+            const container = document.getElementById('server-list-container');
+
+            try {
+                const response = await fetch('/api/servers');
+                const data = await response.json();
+
+                if (data.success) {
+                    servers = data.servers || [];
+                    renderServerList();
+                } else {
+                    container.innerHTML = `<div class="empty-state">Failed to load servers: ${data.message}</div>`;
+                }
+            } catch (e) {
+                console.error('Failed to fetch servers:', e);
+                container.innerHTML = `<div class="empty-state">Network error while fetching servers. Please ensure backend is running.</div>`;
+            }
+        }
+
+        // Render the fetched list
+        function renderServerList() {
+            const container = document.getElementById('server-list-container');
+
+            if (servers.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div>🔌</div>
+                        No md-mcp servers configured yet.<br>Add one above to get started!
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+
+            servers.forEach(server => {
+                html += `
+                    <div class="server-item">
+                        <div class="server-top-row">
+                            <div class="server-name">
+                                <span>📚</span> ${server.name}
+                            </div>
+                            <button class="btn btn-danger" style="padding: 8px 16px; font-size: 0.9em;" onclick="removeServer('${server.name}')">
+                                🗑️ Remove
+                            </button>
+                        </div>
+                        <div class="server-path" title="${server.folder}">${server.folder}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Remove a server configuration
+        async function removeServer(serverName) {
+            if (!confirm(`Are you sure you want to remove "${serverName}" from Claude Desktop?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/servers/${encodeURIComponent(serverName)}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    // refresh
+                    fetchServers();
+                } else {
+                    showMessage(data.message || 'Error removing server.', 'error');
+                }
+            } catch (e) {
+                console.error('Error:', e);
+                showMessage('Network error while removing server.', 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>
