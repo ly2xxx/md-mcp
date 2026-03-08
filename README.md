@@ -1,8 +1,10 @@
 # md-mcp
 
-**Instantly expose markdown folders as MCP servers for Claude Desktop.**
+**Transform from Prompt Engineering to Context Engineering.**
 
-A lightweight Python library that makes your markdown documentation, notes, and knowledge bases instantly available to Claude via the Model Context Protocol (MCP).
+A lightweight Python library that instantly exposes your local markdown documentation, notes, and knowledge bases to **any** AI tool that supports the Model Context Protocol (MCP) – including Claude Desktop. 
+
+No embeddings, no preprocessing, and no uploading. Your files stay safely on your local machine, and any real-time updates are instantly reflected in your AI's context.
 
 ![md-mcp Web Interface](demo/GUI-demo-complete-cut.gif)
 
@@ -40,12 +42,15 @@ md-mcp --folder ~/Documents/notes --name "My Notes"
 
 ## 📋 Features
 
-- **Zero Configuration**: Just point at a folder and go
-- **Auto-Discovery**: Recursively finds all `.md` files
-- **Metadata Extraction**: Parses frontmatter and descriptions
-- **Search Support**: Built-in search across all files
-- **Claude Integration**: Automatically updates Claude Desktop config
-- **Web Interface**: Easy-to-use dashboard for non-technical users
+- **Context Engineering**: Feed your AI assistant exactly the right local context to get better answers, eliminating the need to endlessly prompt.
+- **Universal MCP Support**: Works natively with Claude Desktop and any other AI tool or agent that supports the Model Context Protocol.
+- **Local & Secure First**: Your files never leave your machine. No cloud uploads, no third-party APIs parsing your sensitive notes.
+- **Real-time Sync**: Edit your markdown files and the MCP server picks up the changes instantly. No need to regenerate embeddings or re-index.
+- **Zero Configuration**: Just point at a folder and go.
+- **Auto-Discovery**: Recursively finds all `.md` files.
+- **Metadata Extraction**: Parses YAML frontmatter and first paragraphs for rich resource descriptions.
+- **Search Support**: Built-in search across all files to quickly find the needle in the haystack.
+- **Web Interface**: Easy-to-use visual dashboard for non-technical users to manage multiple knowledge bases.
 
 ---
 
