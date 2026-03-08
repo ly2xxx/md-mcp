@@ -6,7 +6,7 @@ A lightweight Python library that instantly exposes your local markdown document
 
 No embeddings, no preprocessing, and no uploading. Your files stay safely on your local machine, and any real-time updates are instantly reflected in your AI's context.
 
-![md-mcp Web Interface](demo/GUI-demo-complete-cut.gif)
+![md-mcp Web Interface](https://raw.githubusercontent.com/ly2xxx/md-mcp/main/demo/GUI-demo-complete-cut.gif)
 
 ---
 
@@ -262,7 +262,7 @@ Once configured, try these prompts with your AI assistant:
 - "Search my-notes for 'Docker'"
 - "List markdown files in my-notes"
 - "What do my notes say about the system architecture?"
-![List markdown files](image/list-markdown-files.png)
+![List markdown files](https://raw.githubusercontent.com/ly2xxx/md-mcp/main/image/list-markdown-files.png)
 
 ---
 
@@ -445,6 +445,6 @@ Issues: https://github.com/ly2xxx/md-mcp/issues
 **Date:** 2026-02-16  
 
 🚀 **Just point at a folder and go!**
-![point and go](demo/point-and-go.png)
+![point and go](https://raw.githubusercontent.com/ly2xxx/md-mcp/main/demo/point-and-go.png)
 
 
