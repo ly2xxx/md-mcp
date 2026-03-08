@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "md-mcp"
-version = "1.0.1"
+version = "1.0.2"
 description = "Instantly expose markdown folders as MCP servers for Claude Desktop"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {file = "LICENSE"}
+license = "MIT"
 authors = [
     {name = "Yang Li", email = "victorlee2012.vl@gmail.com"}
 ]
@@ -17,7 +17,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -49,5 +48,8 @@ Homepage = "https://github.com/ly2xxx/md-mcp"
 Repository = "https://github.com/ly2xxx/md-mcp.git"
 Issues = "https://github.com/ly2xxx/md-mcp/issues"
 
-[tool.setuptools]
-packages = ["md_mcp"]
+[tool.setuptools.packages.find]
+include = ["md_mcp*"]
+
+[tool.setuptools.package-data]
+"md_mcp.web" = ["templates/*"]

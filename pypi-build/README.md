@@ -179,6 +179,7 @@ Deploy to TestPyPI for testing.
 **Installation from TestPyPI:**
 ```bash
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ md-mcp
+pip install --no-cache-dir --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ md-mcp==1.0.2
 ```
 
 ---
