@@ -10,14 +10,25 @@ A lightweight Python library that makes your markdown documentation, notes, and 
 
 ## 🚀 Quick Start
 
-### Install
-
+### 1. Install
+#### Option A: Install from pypi
+```bash
+pip install md-mcp
+```
+#### Option B: Install from source code
 ```bash
 pip install -e .
 ```
 
-### Basic Usage
+### 2. Launch the Web UI (Recommended)
+The easiest way to manage your markdown servers is through the visual dashboard:
+```bash
+md-mcp --web
+```
+*Just point at a folder and go!*
 
+### 3. Or use the CLI
+If you prefer the command line:
 ```bash
 # Expose a folder of markdown files
 md-mcp --folder ~/Documents/notes --name "My Notes"
@@ -60,7 +71,7 @@ md-mcp --folder ~/research/papers-md --name "Research"
 
 ---
 
-## 📖 Usage
+## 📖 Advanced Usage commands
 
 ### Web Interface (easiest way to use)
 
@@ -301,7 +312,7 @@ If no frontmatter, first paragraph is used as description.
 
 - [ ] **v0.3:** Smart chunking for large files
 - [ ] **v0.4:** Semantic search with embeddings
-
+- [ ] **v1.0:** Use web UI for all operations
 ---
 
 ## 🐛 Troubleshooting
@@ -406,34 +417,8 @@ black md_mcp/
 
 ## 📄 License
 
-**Dual Licensed: GPL-3.0 + Commercial**
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### Free (GPL-3.0)
-This software is free for open-source use under the GNU General Public License v3.0.
-
-**Who can use GPL-3.0 for free:**
-- ✅ Open-source projects
-- ✅ Personal/educational use
-- ✅ Research projects
-- ✅ Any project complying with GPL terms
-
-### Commercial License
-For proprietary/closed-source use, a commercial license is available.
-
-**Pricing (when available):**
-- Startups (<10 employees): $299/year
-- Business (10-100): $999/year
-- Enterprise (100+): $4,999/year
-
-**Commercial license includes:**
-- Use in proprietary software
-- No GPL obligations
-- Priority support
-- Custom features
-
-**Contact:** victorlee2012.vl@gmail.com
-
-See [LICENSE](LICENSE) file for full details.
 
 ---
 
@@ -453,7 +438,6 @@ Issues: https://github.com/ly2xxx/md-mcp/issues
 
 **Built by:** Yang Li  
 **Date:** 2026-02-16  
-**Version:** 0.1.0 (MVP)
 
 🚀 **Just point at a folder and go!**
 ![point and go](demo/point-and-go.png)
