@@ -4,6 +4,8 @@
 
 A lightweight Python library that makes your markdown documentation, notes, and knowledge bases instantly available to Claude via the Model Context Protocol (MCP).
 
+![md-mcp Web Interface](demo/GUI-demo-complete-cut.gif)
+
 ---
 
 ## 🚀 Quick Start
@@ -455,3 +457,5 @@ Issues: https://github.com/ly2xxx/md-mcp/issues
 
 🚀 **Just point at a folder and go!**
 ![point and go](demo/point-and-go.png)
+
+
