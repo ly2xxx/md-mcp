@@ -213,6 +213,15 @@ Deploy to production PyPI.
 - Uncommitted changes warning
 - Comprehensive validation
 
+**Installation from Production PyPI:**
+```bash
+# 1. Uninstall the package
+pip uninstall md-mcp -y
+# 2. Clear pip's local cache
+pip cache purge
+# 3. Install the fresh version from Production PyPI
+pip install md-mcp
+```
 ---
 
 ### `verify-install.sh`
