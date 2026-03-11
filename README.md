@@ -84,6 +84,9 @@ md-mcp --folder ~/research/papers-md --name "Research"
 ```bash
 md-mcp --web
 # Launches a dashboard to manage all your markdown servers
+
+# You can optionally specify a custom port (default is 5000)
+md-mcp --web --port 8080
 ```
 
 ### Add a Markdown Folder
@@ -183,6 +186,7 @@ Search across all markdown files by content or filename.
 
 **Usage in Claude:**
 - **Standard (keyword):** > "Search my notes for 'docker compose'"
+Experiment features: (may not work)
 - **Semantic:** > "Search my docs for 'user authentication' using semantic search" *(Finds related concepts like login, OAuth, etc.)*
 - **Hybrid:** > "Search for 'docker setup' using hybrid search" *(Combines exact matching and conceptual matching)*
 

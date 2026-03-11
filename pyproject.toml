@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "md-mcp"
-version = "1.0.2"
+version = "1.0.3"
 description = "Instantly expose markdown folders as MCP servers for Claude Desktop"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -28,6 +28,7 @@ dependencies = [
     "fastmcp>=0.1.0",
     "flask>=2.0.0",
     "flask-cors>=3.0.0",
+    "watchdog>=3.0.0",
 ]
 
 [project.optional-dependencies]

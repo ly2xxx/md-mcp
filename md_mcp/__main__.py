@@ -83,12 +83,19 @@ Examples:
         help="Launch the web UI"
     )
     
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=5000,
+        help="Port to run the web UI on (default: 5000)"
+    )
+    
     args = parser.parse_args()
     
     # Handle different commands
     if args.web:
         from .web.app import start_web_server
-        start_web_server()
+        start_web_server(port=args.port)
         return 0
         
     if args.status:
