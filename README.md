@@ -46,6 +46,7 @@ md-mcp --folder ~/Documents/notes --name "My Notes"
 - **Universal MCP Support**: Works natively with Claude Desktop and any other AI tool or agent that supports the Model Context Protocol.
 - **Local & Secure First**: Your files never leave your machine. No cloud uploads, no third-party APIs parsing your sensitive notes.
 - **Real-time Sync**: Edit your markdown files and the MCP server picks up the changes instantly. No need to regenerate embeddings or re-index.
+- **Auto File Watching**: Automatically detects when files are added, modified, or deleted (powered by [watchdog](https://pypi.org/project/watchdog/)). Use the `rescan_folder()` tool in Claude Desktop for manual refresh if needed.
 - **Zero Configuration**: Just point at a folder and go.
 - **Auto-Discovery**: Recursively finds all `.md` files.
 - **Metadata Extraction**: Parses YAML frontmatter and first paragraphs for rich resource descriptions.
@@ -175,19 +176,29 @@ Each markdown file becomes an **MCP Resource**:
 
 ## 🛠️ MCP Tools
 
-md-mcp provides two tools to Claude:
+md-mcp provides three tools to Claude:
 
 ### 1. `search_markdown`
 Search across all markdown files by content or filename.
 
 **Usage in Claude:**
-> "Search my notes for 'docker compose'"
+- **Standard (keyword):** > "Search my notes for 'docker compose'"
+- **Semantic:** > "Search my docs for 'user authentication' using semantic search" *(Finds related concepts like login, OAuth, etc.)*
+- **Hybrid:** > "Search for 'docker setup' using hybrid search" *(Combines exact matching and conceptual matching)*
+
+*(Note: Semantic and hybrid search require `pip install md-mcp[semantic]`)*
 
 ### 2. `list_files`
 List all available markdown files.
 
 **Usage in Claude:**
 > "What markdown files do I have about Python?"
+
+### 3. `rescan_folder`
+Manually rescan the folder for new, modified, or deleted markdown files. Use this if the automatic file watcher is not available or if files are missing.
+
+**Usage in Claude:**
+> "Rescan the markdown folder to find my new notes"
 
 ---
 
