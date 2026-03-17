@@ -211,7 +211,7 @@ Manually rescan the folder for new, modified, or deleted markdown files. Use thi
 
 ## 📋 Requirements
 
-- Python 3.8+
+- Python 3.10+
 - [mcp](https://pypi.org/project/mcp/) library
 - Claude Desktop
 

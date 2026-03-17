@@ -64,7 +64,7 @@ To install the software, run the following command:
 pip install awesome-package
 ```
 
-Make sure you have Python 3.8+ installed.
+Make sure you have Python 3.10+ installed.
 
 ## Configuration
 
