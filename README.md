@@ -8,6 +8,9 @@ No embeddings, no preprocessing, and no uploading. Your files stay safely on you
 
 ![md-mcp Web Interface](https://raw.githubusercontent.com/ly2xxx/md-mcp/main/demo/GUI-demo-complete-cut.gif)
 
+![md-mcp Infographic](https://raw.githubusercontent.com/ly2xxx/md-mcp/main/image/md-mcp.png)
+
+
 ---
 
 ## 🚀 Quick Start
@@ -404,7 +407,7 @@ ls -la ~/notes
 | Feature | md-mcp | Manual MCP Server | File Upload |
 |---------|--------|-------------------|-------------|
 | Setup Time | 30 seconds | Hours | Per-session |
-| Auto-Updates | ❌ (v0.2) | ❌ | ❌ |
+| Auto-Updates | ✅ | ❌ | ❌ |
 | Full Folder | ✅ | ✅ | ❌ |
 | Search | ✅ | Custom | ❌ |
 | One Command | ✅ | ❌ | ❌ |
