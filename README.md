@@ -189,7 +189,8 @@ Search across all markdown files by content or filename.
 
 **Usage in Claude:**
 - **Standard (keyword):** > "Search my notes for 'docker compose'"
-Experiment features: (may not work)
+
+⚠️ **Experimental features below: (may not work)**
 - **Semantic:** > "Search my docs for 'user authentication' using semantic search" *(Finds related concepts like login, OAuth, etc.)*
 - **Hybrid:** > "Search for 'docker setup' using hybrid search" *(Combines exact matching and conceptual matching)*
 
