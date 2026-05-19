@@ -37,3 +37,6 @@ Thumbs.db
 pypi-build/.env
 pypi-build/logs/
 PROMOTION_PLAN.md
+
+# claude
+.claude
