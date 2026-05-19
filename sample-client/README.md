@@ -10,9 +10,12 @@ This directory contains a sample script `mcpclient_llm.py` that demonstrates how
     # To pull your model (example for llama3)
     ollama pull llama3
     ```
-3. **Dependencies**: Make sure you have installed the required python packages in your environment:
+3. **Dependencies**: Make sure you have installed the required python packages in your environment. Since the client spawns the `md_mcp` server, your environment must contain both the client's dependencies (`mcp` and `requests`) and the `md_mcp` package's own dependencies (like `fastmcp`, `flask`, etc.).
+
+    The easiest way to set this up is to install the `md-mcp` package in editable mode from the repository root:
     ```bash
     pip install mcp requests
+    pip install -e ..
     ```
 
 ## Usage
