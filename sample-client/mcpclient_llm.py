@@ -13,8 +13,15 @@ FOLDER_TO_SERVE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", 
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = "gpt-oss:120b-cloud"
 
-def ask_ollama(question: str, tools: list) -> dict:
-    """Send question to Ollama with tool definitions and get tool call back."""
+def ask_ollama(question: str, tools: list, model: str | None = None, timeout: int = 120) -> dict:
+    """Send question to Ollama with tool definitions and get tool call back.
+
+    Args:
+        question: User prompt.
+        tools: List of MCP Tool objects (with .name, .description, .inputSchema).
+        model: Ollama model tag. Defaults to module-level MODEL.
+        timeout: HTTP timeout in seconds. Cloud models can be slow on first hit.
+    """
     ollama_tools = [
         {
             "type": "function",
@@ -27,7 +34,7 @@ def ask_ollama(question: str, tools: list) -> dict:
         for t in tools
     ]
     payload = {
-        "model": MODEL,
+        "model": model or MODEL,
         "messages": [
             {
                 "role": "user",
@@ -40,7 +47,7 @@ def ask_ollama(question: str, tools: list) -> dict:
     response = requests.post(
         OLLAMA_URL,
         json=payload,
-        timeout=30
+        timeout=timeout
     )
     response.raise_for_status()
     return response.json()

@@ -30,6 +30,44 @@ This directory contains a sample script `mcpclient_llm.py` that demonstrates how
    - *"Search my markdown files for 'chunking strategy'."*
    - *"Can you rescan the folder?"*
 
+## BDD Tests (POC)
+
+A pytest-bdd suite under `tests/` exercises the same `StdioServerParameters`
+the interactive client uses, but drives it with Ollama-hosted cloud models and
+scores tool routing with [`deepeval`](https://github.com/confident-ai/deepeval).
+
+### Install test deps
+
+```bash
+pip install -r requirements-test.txt
+```
+
+You also need Ollama running and the two cloud-tagged models pulled:
+
+```bash
+ollama pull gpt-oss:120b-cloud
+ollama pull gpt-oss:20b-cloud
+```
+
+### Run
+
+```bash
+pytest -v
+```
+
+The single feature (`tests/features/search_markdown.feature`) is a Scenario
+Outline that runs once per model. Each run:
+
+1. Spawns `md_mcp.server_runner` over stdio.
+2. Asks the model *"What does the getting started guide say about installation?"*.
+3. Asserts via `deepeval.ToolCorrectnessMetric` that the model picked
+   `search_markdown`.
+4. Asserts the tool output contains `"install"`.
+
+To add coverage, drop more rows in the `Examples:` table or add new scenarios
+to the `.feature` file — no Python changes needed unless you introduce new
+Gherkin verbs.
+
 ## How it Works
 
 1. The client launches `md_mcp.server_runner` in a subprocess using the `mcp.client.stdio` transport.
