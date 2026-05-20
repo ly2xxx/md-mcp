@@ -13,7 +13,14 @@ FOLDER_TO_SERVE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", 
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = "gpt-oss:120b-cloud"
 
-def ask_ollama(question: str, tools: list, model: str | None = None, timeout: int = 120) -> dict:
+def ask_ollama(
+    question: str,
+    tools: list,
+    model: str | None = None,
+    timeout: int = 120,
+    system: str | None = None,
+    options: dict | None = None,
+) -> dict:
     """Send question to Ollama with tool definitions and get tool call back.
 
     Args:
@@ -21,6 +28,13 @@ def ask_ollama(question: str, tools: list, model: str | None = None, timeout: in
         tools: List of MCP Tool objects (with .name, .description, .inputSchema).
         model: Ollama model tag. Defaults to module-level MODEL.
         timeout: HTTP timeout in seconds. Cloud models can be slow on first hit.
+        system: Optional system prompt; useful for nudging tool selection during
+            evaluation runs.
+        options: Optional Ollama generation options (e.g. ``temperature``,
+            ``seed``). Defaults to a deterministic preset (``temperature=0``,
+            ``seed=0``) so eval-style callers get repeatable behaviour on a
+            single node. Interactive CLI usage can pass ``options={}`` to keep
+            the model's defaults.
     """
     ollama_tools = [
         {
@@ -33,16 +47,17 @@ def ask_ollama(question: str, tools: list, model: str | None = None, timeout: in
         }
         for t in tools
     ]
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": question})
+
     payload = {
         "model": model or MODEL,
-        "messages": [
-            {
-                "role": "user",
-                "content": question
-            }
-        ],
+        "messages": messages,
         "tools": ollama_tools,
-        "stream": False
+        "stream": False,
+        "options": {"temperature": 0, "seed": 0} if options is None else options,
     }
     response = requests.post(
         OLLAMA_URL,

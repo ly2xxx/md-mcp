@@ -30,6 +30,22 @@ from deepeval.metrics import ToolCorrectnessMetric  # noqa: E402
 from deepeval.test_case import LLMTestCase, ToolCall  # noqa: E402
 
 
+# System prompt anchors smaller / cheaper models to the right tool. Without
+# this, gpt-oss:20b and minimax-m2.7 sometimes guess ``list_files`` because
+# tool descriptions alone aren't enough signal.
+TOOL_ROUTING_SYSTEM = (
+    "You answer questions about a local markdown corpus via tool calls.\n"
+    "Tool selection rules:\n"
+    "- Use `search_markdown` whenever the user asks about CONTENT, TOPICS, "
+    "or anything inside the files (installation, configuration, how-to, "
+    "concepts, etc.). Pick a SINGLE keyword as the `query` argument.\n"
+    "- Use `list_files` ONLY when the user explicitly asks to enumerate or "
+    "list available files.\n"
+    "- Use `rescan_folder` ONLY when the user reports stale results.\n"
+    "Always call exactly one tool."
+)
+
+
 # Bind every scenario in this feature file.
 scenarios("../features/search_markdown.feature")
 
@@ -57,7 +73,12 @@ def _ask(scenario_ctx, mcp_portal, mcp_session, mcp_tools, question):
     scenario_ctx["question"] = question
 
     try:
-        ollama_resp = ask_ollama(question, mcp_tools, model=scenario_ctx["model"])
+        ollama_resp = ask_ollama(
+            question,
+            mcp_tools,
+            model=scenario_ctx["model"],
+            system=TOOL_ROUTING_SYSTEM,
+        )
     except Exception as exc:  # pragma: no cover - surfaced as a test failure
         pytest.fail(
             f"Ollama call failed for model {scenario_ctx['model']}: {exc}. "

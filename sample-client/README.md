@@ -55,6 +55,26 @@ ollama pull gpt-oss:20b-cloud
 pytest -v
 ```
 
+LLM tool routing is inherently stochastic. The suite mitigates that two ways:
+
+1. The Ollama call is pinned to `temperature=0`, `seed=0` (see
+   `ask_ollama` defaults). This makes a *single* Ollama node mostly
+   deterministic, though cloud replicas can still drift across runs.
+2. A short system prompt in the step definition anchors smaller models
+   (`gpt-oss:20b`, `minimax-m2.7`) to the correct tool — without it they
+   occasionally guess `list_files` for content questions.
+
+For the residual flakiness use `pytest-rerunfailures` (already in
+`requirements-test.txt`):
+
+```bash
+pytest -v --reruns 2
+```
+
+A test that passes on retry tells you the model is *capable* of the right
+behavior at this temperature; persistent failure across reruns is a real
+signal worth investigating.
+
 The single feature (`tests/features/search_markdown.feature`) is a Scenario
 Outline that runs once per model. Each run:
 
