@@ -11,6 +11,7 @@ Feature: LLM-driven markdown search over MCP
     And the tool result references "getting-started.md"
 
     Examples:
-      | model              |
-      | gpt-oss:120b-cloud |
-      | gpt-oss:20b-cloud  |
+      | model               |
+      | gpt-oss:120b-cloud  |
+      | gpt-oss:20b-cloud   |
+      | minimax-m2.7:cloud  |
