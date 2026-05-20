@@ -59,10 +59,12 @@ The single feature (`tests/features/search_markdown.feature`) is a Scenario
 Outline that runs once per model. Each run:
 
 1. Spawns `md_mcp.server_runner` over stdio.
-2. Asks the model *"What does the getting started guide say about installation?"*.
+2. Asks the model *"How do I install this project? Search the documentation."*.
 3. Asserts via `deepeval.ToolCorrectnessMetric` that the model picked
    `search_markdown`.
-4. Asserts the tool output contains `"install"`.
+4. Asserts the tool output references `getting-started.md` (filenames are
+   always echoed by `search_markdown`, so this is robust to whichever
+   snippet window the chunker picks).
 
 To add coverage, drop more rows in the `Examples:` table or add new scenarios
 to the `.feature` file — no Python changes needed unless you introduce new

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import sys
+from functools import partial
 
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
@@ -52,7 +53,7 @@ def _set_model(scenario_ctx, model):
 # ---------- When -----------------------------------------------------------
 
 @when(parsers.parse('the user asks "{question}"'))
-def _ask(scenario_ctx, mcp_loop, mcp_session, mcp_tools, question):
+def _ask(scenario_ctx, mcp_portal, mcp_session, mcp_tools, question):
     scenario_ctx["question"] = question
 
     try:
@@ -75,8 +76,9 @@ def _ask(scenario_ctx, mcp_loop, mcp_session, mcp_tools, question):
     scenario_ctx["tool_name"] = tool_name
     scenario_ctx["tool_args"] = tool_args
 
-    tool_result = mcp_loop.run_until_complete(
-        mcp_session.call_tool(tool_name, arguments=tool_args)
+    # BlockingPortal.call accepts only positional args; bind kwargs with partial.
+    tool_result = mcp_portal.call(
+        partial(mcp_session.call_tool, tool_name, arguments=tool_args)
     )
     scenario_ctx["tool_output"] = "\n".join(
         item.text for item in tool_result.content if hasattr(item, "text")
@@ -87,14 +89,17 @@ def _ask(scenario_ctx, mcp_loop, mcp_session, mcp_tools, question):
 
 @then(parsers.parse('the LLM invokes the "{expected_tool}" tool'))
 def _tool_correctness(scenario_ctx, expected_tool):
+    # 1. Structure the LLM interaction into a standard DeepEval TestCase
     test_case = LLMTestCase(
         input=scenario_ctx["question"],
         actual_output=scenario_ctx.get("tool_output", ""),
         tools_called=[ToolCall(name=scenario_ctx["tool_name"])],
         expected_tools=[ToolCall(name=expected_tool)],
     )
+    # 2. Instantiate and measure using DeepEval's metric
     metric = ToolCorrectnessMetric()
     metric.measure(test_case)
+    # 3. Assert whether the metric passed
     assert metric.is_successful(), (
         f"Tool routing failed for model {scenario_ctx.get('model')}: "
         f"expected={expected_tool!r}, got={scenario_ctx['tool_name']!r}, "
@@ -102,8 +107,10 @@ def _tool_correctness(scenario_ctx, expected_tool):
     )
 
 
-@then(parsers.parse('the tool result mentions "{expected_text}"'))
-def _result_contains(scenario_ctx, expected_text):
+@then(parsers.parse('the tool result references "{expected_text}"'))
+def _result_references(scenario_ctx, expected_text):
+    """Filename match is robust: search_markdown always echoes matched paths,
+    independent of which snippet window the chunker picked."""
     output = scenario_ctx.get("tool_output", "")
     assert expected_text.lower() in output.lower(), (
         f"'{expected_text}' not found in tool output for model "

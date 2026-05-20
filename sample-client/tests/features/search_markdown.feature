@@ -3,12 +3,12 @@ Feature: LLM-driven markdown search over MCP
   I want an Ollama-hosted model to route my question through the search_markdown tool
   So that I get grounded answers from my markdown corpus.
 
-  Scenario Outline: Model picks search_markdown and finds installation content
+  Scenario Outline: Model picks search_markdown and locates the right file
     Given an MCP server serving the test-samples folder
     And the LLM model is "<model>"
-    When the user asks "What does the getting started guide say about installation?"
+    When the user asks "How do I install this project? Search the documentation."
     Then the LLM invokes the "search_markdown" tool
-    And the tool result mentions "install"
+    And the tool result references "getting-started.md"
 
     Examples:
       | model              |
