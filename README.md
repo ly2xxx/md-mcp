@@ -30,6 +30,10 @@ The easiest way to manage your markdown servers is through the visual dashboard:
 ```bash
 md-mcp --web
 ```
+If the command is not recognized (e.g., if the Python scripts directory is not in your system PATH), you can run:
+```bash
+python -m md_mcp --web
+```
 *Just point at a folder and go!*
 
 ### 3. Or use the CLI
@@ -85,11 +89,15 @@ md-mcp --folder ~/research/papers-md --name "Research"
 ### Web Interface (easiest way to use)
 
 ```bash
+# Direct command (if in PATH)
 md-mcp --web
-# Launches a dashboard to manage all your markdown servers
+
+# Or via Python module
+python -m md_mcp --web
 
 # You can optionally specify a custom port (default is 5000)
 md-mcp --web --port 8080
+# or: python -m md_mcp --web --port 8080
 ```
 
 ### Add a Markdown Folder
