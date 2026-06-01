@@ -203,7 +203,9 @@ embedding cache can be stored alongside the docs.
 - **Health check** targets the HTTP port; it is not meaningful in `stdio` mode.
 - **Security:** runs as non-root (uid 10001); mount knowledge bases **read-only**
   (`:ro`) unless you need semantic caching.
-- **Toward Kubernetes:** this image is a plain HTTP service, so a `Deployment` +
-  `Service` is straightforward. For the anti-contamination goal, front multiple
-  md-mcp-style services with a tool-namespacing MCP gateway (e.g. ToolHive-style)
-  rather than relying on the container boundary alone.
+- **Toward Kubernetes & anti-contamination:** this image is a plain streamable-http
+  service, so it drops cleanly behind **ToolHive** (which governs servers, organizes
+  them into groups, and runs them via a Kubernetes operator). That gateway — not the
+  container boundary alone — is what actually prevents two servers' similar tools from
+  colliding. See **[step2-plan.md](step2-plan.md)** for the full adoption plan
+  (verified that this image meets ToolHive's streamable-http `/mcp` backend contract).

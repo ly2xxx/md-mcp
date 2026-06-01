@@ -40,6 +40,21 @@ RUN pip install --upgrade pip && \
 # Container entrypoint (HTTP-by-default runner).
 COPY docker/entrypoint.py ./entrypoint.py
 
+# OCI image metadata — standard labels consumed by registries and the ToolHive
+# catalog. Override at build time, e.g.:
+#   --build-arg VCS_REF=$(git rev-parse --short HEAD) --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+ARG MD_MCP_VERSION=1.0.4
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+LABEL org.opencontainers.image.title="md-mcp" \
+      org.opencontainers.image.description="Expose local markdown folders as an MCP server (streamable-http at /mcp)." \
+      org.opencontainers.image.source="https://github.com/ly2xxx/md-mcp" \
+      org.opencontainers.image.url="https://github.com/ly2xxx/md-mcp" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${MD_MCP_VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
 # Run as a non-root user; /data is where markdown gets mounted.
 RUN useradd --create-home --uid 10001 mcp && \
     mkdir -p /data && \
