@@ -40,7 +40,20 @@ Traditional stdio MCP is fundamentally built for a single-user, single-machine s
 
 ---
 
-## Comparison Summary
+## 4. Containerized MCP vs. Traditional Microservices
+
+While a containerized MCP server looks like a traditional microservice from a deployment perspective (it runs in a container, exposes a port, and responds to HTTP), it is fundamentally different in who consumes it, how the interface is defined, and how it executes:
+
+* **The Consumer (AI Agents vs. Software)**: Traditional microservices are built for deterministic code (e.g., a frontend app calling specific routes). MCP microservices are built for LLMs/Agents which dynamically discover and choose when to invoke tools.
+* **The Interface (Natural Language vs. Strict Schemas)**: Instead of just validating strict types, MCP heavily relies on natural language descriptions (docstrings). These descriptions are injected into the LLM system prompt to instruct the agent on when and how to use the tool.
+* **Protocol & Primitives**: Traditional services expose arbitrary HTTP paths (`GET /users`). MCP standardizes communication around JSON-RPC 2.0 and agent-centric primitives: Tools, Resources, and Prompts.
+* **Bi-directional Flow (Sampling)**: Traditional microservices use standard request-response. MCP allows the server to request the client to perform operations (like requesting the LLM to generate/sample text or confirm actions) mid-execution.
+
+---
+
+## Comparison Summaries
+
+### Traditional Local stdio vs. Containerized MCP
 
 | Capability | Traditional Local stdio | Containerized (HTTP/stdio) |
 | :--- | :--- | :--- |
@@ -49,3 +62,14 @@ Traditional stdio MCP is fundamentally built for a single-user, single-machine s
 | **Deployment** | Local machine only | Local, Kubernetes, Cloud VMs, Serverless |
 | **Sharing** | Single-user only | Multi-user / Shared across agent pools |
 | **Architecture** | Desktop application utility | Production-grade microservice |
+
+### Traditional Microservice vs. Containerized MCP Microservice
+
+| Feature | Traditional Microservice | Containerized MCP Microservice |
+| :--- | :--- | :--- |
+| **Primary Client** | Web Browsers, Backend code | Large Language Models (LLMs) & Agents |
+| **Protocol** | REST/HTTP, gRPC, GraphQL | Model Context Protocol (JSON-RPC 2.0) |
+| **Routing** | Rigid routes (`/api/v1/resource`) | Dynamic discovery (Client queries list of tools/resources) |
+| **Core Documentation** | Developer API Docs (OpenAPI) | LLM System Prompts (Natural language docstrings) |
+| **Flow Control** | Unidirectional (Client $\rightarrow$ Server) | Bi-directional (Server can ask Client to "sample" or run LLM tasks) |
+
