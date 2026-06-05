@@ -103,9 +103,9 @@ which still proves the port is up — the MCP protocol needs a proper client):
 curl.exe -i http://localhost:8000/mcp
 ```
 
-**Connect a real MCP client.** Any client that supports **streamable HTTP**
-transport can point at `http://localhost:8000/mcp`. For example, an `mcp.json`
-that uses HTTP:
+**Connect a real MCP client.** Any client that supports **streamable HTTP** transport can point directly at `http://localhost:8000/mcp`. 
+
+For generic HTTP/SSE-compatible clients (like VS Code MCP extensions using `mcp.json`):
 
 ```json
 {
@@ -113,6 +113,23 @@ that uses HTTP:
     "md-notes-docker": {
       "type": "http",
       "url": "http://localhost:8000/mcp"
+    }
+  }
+}
+```
+
+For **Claude Desktop** (which only natively supports stdio subprocesses), you can connect to the running container by using `mcp-remote` as a bridge/proxy in your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "md-notes-docker": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:8000/mcp"
+      ]
     }
   }
 }
