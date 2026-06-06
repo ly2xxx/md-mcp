@@ -20,7 +20,12 @@ Log in to your Docker Hub account from your terminal:
 ```powershell
 docker login
 ```
-*Enter your Docker Hub username and password (or Personal Access Token) when prompted.*
+*When prompted, enter your Docker Hub username. For the **Password** prompt, paste your **Personal Access Token (PAT)** instead of your account password.*
+
+Alternatively, to avoid interactive input issues, you can log in by passing your PAT via standard input:
+```powershell
+"YOUR_PERSONAL_ACCESS_TOKEN" | docker login --username yourusername --password-stdin
+```
 
 ---
 
@@ -42,7 +47,7 @@ Run the build command from the **repository root**. Replace `yourusername` with 
 docker buildx build --platform linux/amd64,linux/arm64 `
   -f docker/Dockerfile `
   -t yourusername/md-mcp:latest `
-  -t yourusername/md-mcp:1.0.0 `
+  -t yourusername/md-mcp:1.0.4 `
   --push .
 ```
 

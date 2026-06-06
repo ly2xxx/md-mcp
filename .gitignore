@@ -41,3 +41,6 @@ PROMOTION_PLAN.md
 
 # claude
 .claude
+
+# Docker
+docker/.env
