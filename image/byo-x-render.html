@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html,body { margin:0; padding:0; background:#ffffff; }
+  #wrap { width:960px; height:580px; }
+  svg { display:block; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 580" width="960" height="580" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrowGray" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#374151"/>
+    </marker>
+    <marker id="arrowTeal" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#0F766E"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="580" fill="#FFFFFF"/>
+  <text x="480" y="46" text-anchor="middle" font-size="27" font-weight="700" fill="#111827">Containerized MCP + Bring-Your-Own-X</text>
+  <text x="480" y="74" text-anchor="middle" font-size="14.5" fill="#6B7280">The tool ships as an immutable image. Your context stays on your machine.</text>
+  <rect x="34" y="100" width="892" height="392" rx="18" fill="#FAFAFA" stroke="#9CA3AF" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="56" y="128" font-size="14" font-weight="600" fill="#6B7280">🖥  Your machine — nothing leaves it</text>
+  <text x="159" y="170" text-anchor="middle" font-size="15" font-weight="700" fill="#0F766E">Bring Your Own X</text>
+  <rect x="54" y="184" width="210" height="46" rx="9" fill="#E6FBF7" stroke="#14B8A6" stroke-width="2"/>
+  <text x="72" y="212" font-size="14" fill="#134E4A">📁  Data — notes &amp; docs</text>
+  <rect x="54" y="240" width="210" height="46" rx="9" fill="#E6FBF7" stroke="#14B8A6" stroke-width="2"/>
+  <text x="72" y="268" font-size="14" fill="#134E4A">💻  Code — your actions</text>
+  <rect x="54" y="296" width="210" height="46" rx="9" fill="#E6FBF7" stroke="#14B8A6" stroke-width="2"/>
+  <text x="72" y="324" font-size="14" fill="#134E4A">⚙️  Config — settings, creds</text>
+  <text x="159" y="372" text-anchor="middle" font-size="12.5" font-style="italic" fill="#6B7280">swap the X: data → code → config → …</text>
+  <line x1="276" y1="263" x2="384" y2="263" stroke="#0F766E" stroke-width="2.5" marker-end="url(#arrowTeal)"/>
+  <text x="330" y="252" text-anchor="middle" font-size="13" font-weight="600" fill="#0F766E">mount  :ro</text>
+  <rect x="392" y="196" width="250" height="150" rx="16" fill="#E8F4FD" stroke="#2496ED" stroke-width="2.5"/>
+  <text x="517" y="234" text-anchor="middle" font-size="20">📦</text>
+  <text x="517" y="266" text-anchor="middle" font-size="16.5" font-weight="700" fill="#0B4F8A">Containerized MCP Server</text>
+  <text x="517" y="290" text-anchor="middle" font-size="12.5" fill="#1D4ED8">immutable · pull-and-go</text>
+  <text x="517" y="322" text-anchor="middle" font-size="12" font-family="monospace" fill="#374151">ly2xxx/md-mcp:latest</text>
+  <line x1="650" y1="263" x2="734" y2="263" stroke="#374151" stroke-width="2.5" marker-start="url(#arrowGray)" marker-end="url(#arrowGray)"/>
+  <text x="692" y="252" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">MCP</text>
+  <text x="692" y="284" text-anchor="middle" font-size="10.5" fill="#9CA3AF">stdio / http</text>
+  <rect x="740" y="206" width="186" height="120" rx="14" fill="#EEECF9" stroke="#7C6FB0" stroke-width="2.5"/>
+  <text x="833" y="254" text-anchor="middle" font-size="16.5" font-weight="700" fill="#4C3F86">AI Client</text>
+  <text x="833" y="278" text-anchor="middle" font-size="12.5" fill="#6B5B95">Claude Code / Desktop</text>
+  <text x="540" y="470" text-anchor="middle" font-size="12" font-style="italic" fill="#6B7280">the container starts &amp; stops with your AI client — nothing to spin up or shut down</text>
+  <text x="480" y="532" text-anchor="middle" font-size="15.5" font-weight="600" fill="#111827">Pull the image  ·  Mount your X  ·  It runs in a box you own</text>
+  <text x="480" y="556" text-anchor="middle" font-size="12.5" fill="#6B7280">No install · No upload · Update with a single  docker pull</text>
+</svg>
+</div>
+</body>
+</html>
