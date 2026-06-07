@@ -43,7 +43,7 @@ COPY docker/entrypoint.py ./entrypoint.py
 # OCI image metadata — standard labels consumed by registries and the ToolHive
 # catalog. Override at build time, e.g.:
 #   --build-arg VCS_REF=$(git rev-parse --short HEAD) --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-ARG MD_MCP_VERSION=1.0.4
+ARG MD_MCP_VERSION=1.0.5
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.title="md-mcp" \
