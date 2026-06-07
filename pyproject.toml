@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastmcp>=0.1.0",
+    "fastmcp>=3.4.2",
     "flask>=2.0.0",
     "flask-cors>=3.0.0",
     "watchdog>=3.0.0",
