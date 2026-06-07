@@ -1,0 +1,35 @@
+# md-notes — research group (knowledge base: docker/sample-docs)
+# Cluster-side equivalent of:
+#   thv run --name md-notes --group research --transport streamable-http \
+#           --target-port 8000 -v <sample-docs>:/data:ro md-mcp:local
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: md-notes
+  namespace: toolhive-system
+  labels:
+    toolhive.stacklok.io/group: research
+spec:
+  image: md-mcp:local
+  transport: streamable-http
+  mcpPort: 8000          # port our server listens on inside the pod (own netns → no conflict)
+  proxyPort: 8080        # port the ToolHive proxy exposes
+  # Keyword search needs no outbound network → lock it down.
+  permissionProfile:
+    type: builtin
+    name: none
+  resources:
+    limits:   { cpu: "250m", memory: "256Mi" }
+    requests: { cpu: "50m",  memory: "64Mi" }
+  # Docker Desktop Kubernetes reaches Windows host files under /run/desktop/mnt/host/<drive>/...
+  volumes:
+    - name: notes
+      hostPath: /run/desktop/mnt/host/c/code/md-mcp/docker/sample-docs
+      mountPath: /data
+      readOnly: true
+  # md-mcp:local is a local image (never pushed) → don't try to pull it.
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          imagePullPolicy: Never

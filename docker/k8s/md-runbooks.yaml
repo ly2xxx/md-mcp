@@ -1,0 +1,34 @@
+# md-runbooks — ops group (knowledge base: test-samples)
+# Cluster-side equivalent of:
+#   thv run --name md-runbooks --group ops --transport streamable-http \
+#           --target-port 8000 -v <test-samples>:/data:ro md-mcp:local
+# Note: unlike the local CLI phase, no MD_PORT override is needed — each pod has its
+# own network namespace, so mcpPort 8000 does not collide with md-notes.
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: md-runbooks
+  namespace: toolhive-system
+  labels:
+    toolhive.stacklok.io/group: ops
+spec:
+  image: md-mcp:local
+  transport: streamable-http
+  mcpPort: 8000
+  proxyPort: 8080
+  permissionProfile:
+    type: builtin
+    name: none
+  resources:
+    limits:   { cpu: "250m", memory: "256Mi" }
+    requests: { cpu: "50m",  memory: "64Mi" }
+  volumes:
+    - name: runbooks
+      hostPath: /run/desktop/mnt/host/c/code/md-mcp/test-samples
+      mountPath: /data
+      readOnly: true
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          imagePullPolicy: Never

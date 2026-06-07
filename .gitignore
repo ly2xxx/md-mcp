@@ -44,3 +44,6 @@ PROMOTION_PLAN.md
 
 # Docker
 docker/.env
+
+# Tools
+.tools/

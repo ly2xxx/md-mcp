@@ -74,9 +74,10 @@ EXPOSE 8000
 # Volume for the markdown knowledge base.
 VOLUME ["/data"]
 
-# Health check for HTTP transports: confirm the port is accepting connections.
-# (No-op usefulness in stdio mode — there is no listening port then.)
+# Transport-aware health check: probe the TCP port for HTTP transports; pass
+# automatically in stdio mode (no listening port there). See docker/healthcheck.py.
+COPY docker/healthcheck.py ./healthcheck.py
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import socket, os, sys; s=socket.socket(); s.settimeout(3); sys.exit(0 if s.connect_ex(('127.0.0.1', int(os.environ.get('MD_PORT','8000'))))==0 else 1)"
+    CMD ["python", "/app/healthcheck.py"]
 
 ENTRYPOINT ["python", "/app/entrypoint.py"]

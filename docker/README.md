@@ -5,10 +5,16 @@ local Docker Desktop (and, later, any Kubernetes-based infra) instead of as a ho
 Python process.
 
 The image wraps the existing server (`md_mcp.server.create_markdown_server`) with a
-thin [`entrypoint.py`](entrypoint.py) that defaults to **HTTP transport** — i.e. a
-long-lived, network-reachable MCP service — which is the natural shape for
-container/K8s hosting. It can still run in **stdio** mode for Claude Desktop if you
-prefer.
+thin [`entrypoint.py`](entrypoint.py) supporting two styles, selected by
+`MD_TRANSPORT`:
+
+- **stdio** (`MD_TRANSPORT=stdio`) — the client launches the container and talks over
+  the subprocess's stdin/stdout. **This is the recommended, dependency-free way to use
+  md-mcp with Claude Code / Claude Desktop** (see the next section).
+- **HTTP** (`MD_TRANSPORT=http`, the image default) — a long-lived, network-reachable
+  MCP service; the natural shape for an always-on / multi-client setup and for K8s.
+
+The public image is on Docker Hub as **`ly2xxx/md-mcp:latest`** — pull and go.
 
 > **Reality check on "MCP contamination":** putting each MCP server in its own
 > container gives you a reproducible runtime and clean K8s deployment, but it does
@@ -26,8 +32,9 @@ prefer.
 | File | Purpose |
 |------|---------|
 | [`Dockerfile`](Dockerfile) | Builds the `python:3.12-slim`-based image (non-root, healthcheck). |
-| [`entrypoint.py`](entrypoint.py) | Env-configurable runner. HTTP by default; stdio optional. |
-| [`docker-compose.yml`](docker-compose.yml) | One-command local run with a mounted folder. |
+| [`entrypoint.py`](entrypoint.py) | Env-configurable runner (stdio or HTTP). |
+| [`healthcheck.py`](healthcheck.py) | Transport-aware container healthcheck (passes in stdio mode, probes the port in HTTP mode). |
+| [`docker-compose.yml`](docker-compose.yml) | One-command local run with a mounted folder (HTTP). |
 | [`sample-docs/`](sample-docs/) | A throwaway markdown folder so the server has something to serve out of the box. |
 | `../.dockerignore` | Keeps the build context small (excludes `.venv`, `.git`, images, etc.). |
 
@@ -38,6 +45,68 @@ prefer.
 - Docker Desktop running (Windows/macOS/Linux).
 - Build commands are run **from the repository root** — the image needs the
   `md_mcp/` package, so the build context is the repo root, not this folder.
+
+---
+
+## Use with Claude Code & Claude Desktop (recommended — stdio, pull-and-go)
+
+The simplest way to use md-mcp with an AI client: let the **client launch the
+container** over stdio. The server's lifecycle is then tied to the client (starts when
+the client starts, stops when it stops via `--rm`), and there are **no extra
+dependencies** — if you can pull the image, you already have Docker. No `npx`/Node, no
+ports to manage, no container to start or stop yourself.
+
+One-time pull (so the first launch doesn't appear to stall while Docker fetches the
+image):
+
+```bash
+docker pull ly2xxx/md-mcp:latest
+```
+
+Then add to your client's MCP config — `~/.claude.json` (Claude Code) or
+`claude_desktop_config.json` (Claude Desktop):
+
+```json
+{
+  "mcpServers": {
+    "md-notes": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "MD_TRANSPORT=stdio",
+        "-v", "C:/Users/you/notes:/data:ro",
+        "ly2xxx/md-mcp:latest"
+      ]
+    }
+  }
+}
+```
+
+Only the `-v` **source** path changes per OS — the rest is identical:
+
+| OS | `-v` source example |
+|----|---------------------|
+| Windows | `C:/Users/you/notes:/data:ro` |
+| macOS | `/Users/you/notes:/data:ro` |
+| Linux | `/home/you/notes:/data:ro` |
+
+Restart/reload the client; the tools (`search_markdown`, `list_files`,
+`rescan_folder`) appear under that server. Add more servers by repeating the block
+with a different name + folder.
+
+Notes:
+- `-i` (interactive) is **required** — stdio needs stdin attached.
+- Do **not** add `-p` (no listening port exists in stdio mode).
+- `MD_TRANSPORT=stdio` is mandatory here. With `http`, the server would bind a TCP
+  port and ignore stdin, so the client's handshake never completes.
+
+> **Which style should I use?**
+> | | `command` + `MD_TRANSPORT=stdio` (this section) | `url` + `type:http` (below) |
+> |---|---|---|
+> | Who runs the container | the client, automatically | you (`docker run -d`) |
+> | Lifecycle | dies with the client | long-lived, survives client restarts |
+> | Extra deps | none | none (client connects by URL) |
+> | Best for | single-user desktop, pull-and-go | always-on / multiple clients sharing one server |
 
 ---
 
@@ -167,33 +236,18 @@ docker run --rm -p 9000:9000 `
 
 ---
 
-## Using it with Claude Desktop (stdio mode)
+## Using a locally-built image instead of the published one
 
-Claude Desktop launches MCP servers as stdio subprocesses. You can have it launch
-the **container** per session instead of a host Python process. Set
-`MD_TRANSPORT=stdio` and let Claude Desktop own the container lifecycle with
-`docker run -i --rm`:
+The recommended stdio config above uses the published `ly2xxx/md-mcp:latest`. If you
+build the image yourself (e.g. to test a change), just swap the image reference for
+`md-mcp:local`:
 
-```json
-{
-  "mcpServers": {
-    "md-notes-docker": {
-      "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-e", "MD_TRANSPORT=stdio",
-        "-v", "C:/Users/you/notes:/data:ro",
-        "md-mcp:local"
-      ]
-    }
-  }
-}
+```powershell
+docker build -f docker/Dockerfile -t md-mcp:local .   # from the repo root
 ```
-
-Notes:
-- `-i` (interactive) is **required** — stdio transport needs stdin attached.
-- Do **not** publish a port (`-p`) in stdio mode; there is no listening socket.
-- The image must be built first (`docker build ... -t md-mcp:local .`).
+```json
+"args": ["run","-i","--rm","-e","MD_TRANSPORT=stdio","-v","C:/Users/you/notes:/data:ro","md-mcp:local"]
+```
 
 ---
 
@@ -217,7 +271,9 @@ embedding cache can be stored alongside the docs.
   events for bind mounts from a Windows/macOS host (a Docker Desktop limitation).
   Use the `rescan_folder()` MCP tool to refresh after editing files. Keyword search
   always re-reads on rescan.
-- **Health check** targets the HTTP port; it is not meaningful in `stdio` mode.
+- **Health check** is transport-aware ([`healthcheck.py`](healthcheck.py)): it probes
+  the TCP port in HTTP mode and passes automatically in `stdio` mode (no port to probe),
+  so stdio containers no longer show a misleading "unhealthy" status.
 - **Security:** runs as non-root (uid 10001); mount knowledge bases **read-only**
   (`:ro`) unless you need semantic caching.
 - **Toward Kubernetes & anti-contamination:** this image is a plain streamable-http
