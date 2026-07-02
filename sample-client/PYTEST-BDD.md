@@ -31,6 +31,7 @@ Feature: LLM-driven markdown search over MCP
 ```
 
 **3 things happening here:**
+
 - `Scenario Outline` + `Examples:` table = parameterized test — runs once per row
 - `Given` = setup (MCP server running)
 - `When` = action (user asks a question)
@@ -73,11 +74,11 @@ def assert_correct_file(result):
 
 ### Best Example Resources
 
-| Resource | Link |
-|---|---|
-| **pytest-bdd official docs** (with full blog-publishing example) | https://pytest-bdd.readthedocs.io/en/latest/ |
-| **Eric's complete guide** (GitHub repo linked inside) | https://pytest-with-eric.com/bdd/pytest-bdd/ |
-| **GitHub repo for that guide** | https://github.com/Pytest-with-Eric/pytest-bdd-example |
-| **PyPI page** (scenario outline syntax with parsers) | https://pypi.org/project/pytest-bdd/ |
+| Resource                                                               | Link                                                   |
+| ---------------------------------------------------------------------- | ------------------------------------------------------ |
+| **pytest-bdd official docs** (with full blog-publishing example) | https://pytest-bdd.readthedocs.io/en/latest/           |
+| **Eric's complete guide** (GitHub repo linked inside)            | https://pytest-with-eric.com/bdd/pytest-bdd/           |
+| **GitHub repo for that guide**                                   | https://github.com/Pytest-with-Eric/pytest-bdd-example |
+| **PyPI page** (scenario outline syntax with parsers)             | https://pypi.org/project/pytest-bdd/                   |
 
 The **Eric's guide** is the most beginner-friendly walkthrough. The **official docs** are the most complete. Want me to clone the Eric example repo to `C:\code\` so you have a runnable copy?

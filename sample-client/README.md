@@ -6,25 +6,27 @@ This directory contains a sample script `mcpclient_llm.py` that demonstrates how
 
 1. **Ollama**: Ensure [Ollama](https://ollama.com/) is installed and running locally on port `11434`.
 2. **LLM Model**: The script uses `gpt-oss:120b-cloud` by default. You can pull the model or edit `MODEL` inside `mcpclient_llm.py` to use one you already have (e.g., `llama3` or `phi3`).
-    ```bash
-    # To pull your model (example for llama3)
-    ollama pull llama3
-    ```
+
+   ```bash
+   # To pull your model (example for llama3)
+   ollama pull llama3
+   ```
 3. **Dependencies**: Make sure you have installed the required python packages in your environment. Since the client spawns the `md_mcp` server, your environment must contain both the client's dependencies (`mcp` and `requests`) and the `md_mcp` package's own dependencies (like `fastmcp`, `flask`, etc.).
 
-    The easiest way to set this up is to install the `md-mcp` package in editable mode from the repository root:
-    ```bash
-    pip install mcp requests
-    pip install -e ..
-    ```
+   The easiest way to set this up is to install the `md-mcp` package in editable mode from the repository root:
+
+   ```bash
+   pip install mcp requests
+   pip install -e ..
+   ```
 
 ## Usage
 
 1. (Optional) Edit the `FOLDER_TO_SERVE` constant in `mcpclient_llm.py` if you'd like to index a specific folder. By default, it points to `../test-samples` within this repository.
 2. Run the script:
-    ```bash
-    python mcpclient_llm.py
-    ```
+   ```bash
+   python mcpclient_llm.py
+   ```
 3. The interactive chat will start. You can ask questions about your markdown files! For example:
    - *"What markdown files are available?"*
    - *"Search my markdown files for 'chunking strategy'."*
@@ -38,21 +40,25 @@ scores tool routing with [`deepeval`](https://github.com/confident-ai/deepeval).
 
 ### Install test deps
 
-```bash
+```PowerShell
 pip install -r requirements-test.txt
+
+uv sync --extra dev
 ```
 
 You also need Ollama running and the two cloud-tagged models pulled:
 
-```bash
+```PowerShell
 ollama pull gpt-oss:120b-cloud
 ollama pull gpt-oss:20b-cloud
 ```
 
 ### Run
 
-```bash
+```PowerShell
 pytest -v
+$env:OPENAI_API_KEY="dummy_key"
+uv run pytest -v
 ```
 
 LLM tool routing is inherently stochastic. The suite mitigates that two ways:
