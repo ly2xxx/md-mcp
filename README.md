@@ -59,6 +59,7 @@ md-mcp --folder ~/Documents/notes --name "My Notes"
 - **Metadata Extraction**: Parses YAML frontmatter and first paragraphs for rich resource descriptions.
 - **Search Support**: Built-in search across all files to quickly find the needle in the haystack.
 - **Web Interface**: Easy-to-use visual dashboard for non-technical users to manage multiple knowledge bases.
+- **Observable by Default**: Optional OpenTelemetry instrumentation (`pip install "md-mcp[observability]"`) traces every MCP tool call — an audit trail of what your AI assistant actually did with your notes. See [docker/README.md](docker/README.md#optional-observability-opentelemetry).
 
 ---
 

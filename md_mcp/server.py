@@ -9,6 +9,7 @@ from fastmcp import FastMCP
 
 from .scanner import MarkdownScanner, MarkdownFile
 from .chunking import MarkdownChunker, Chunk
+from . import telemetry
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -91,6 +92,14 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
     scanner = MarkdownScanner(folder_path)
     chunker = MarkdownChunker(max_chunk_size=1000, context_chars=200)
     mcp = FastMCP(server_name)
+
+    # Optional OpenTelemetry tracing (no-op unless the `observability` extra is
+    # installed and a collector endpoint is reachable). Instruments every MCP
+    # request via middleware, so all tools below are covered automatically.
+    if telemetry.init_telemetry():
+        otel_middleware = telemetry.create_tracing_middleware()
+        if otel_middleware is not None:
+            mcp.add_middleware(otel_middleware)
 
     # Caches
     markdown_files: List[MarkdownFile] = []
