@@ -1,6 +1,7 @@
 """FastMCP server implementation for markdown files with semantic chunking and auto-reload."""
 
 import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Optional
 import time
@@ -92,6 +93,9 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
     scanner = MarkdownScanner(folder_path)
     chunker = MarkdownChunker(max_chunk_size=1000, context_chars=200)
     mcp = FastMCP(server_name)
+
+    # Cap for read_file responses; huge files blow out the model's context.
+    MAX_READ_CHARS = int(os.environ.get("MD_MAX_READ_CHARS", "60000"))
 
     # Optional OpenTelemetry tracing (no-op unless the `observability` extra is
     # installed and a collector endpoint is reachable). Instruments every MCP
@@ -199,6 +203,55 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
         if md_file.content is None:
             md_file.load()
         return md_file.content
+
+    @mcp.tool()
+    def read_file(path: str, section: str = "") -> str:
+        """Read a markdown file by its relative path (as shown by list_files /
+        search_markdown), either in full or just one section.
+
+        Args:
+            path: Relative path of the file, e.g. "notes/project.md"
+            section: Optional header name (or part of one) to return only the
+                matching section(s) instead of the whole file, e.g. "Setup"
+
+        Returns:
+            The file content (or matching sections), or an error listing
+            similar paths if the file is not found.
+        """
+        ensure_scanned()
+        md_file = scanner.get_file_by_relative_path(path)
+        if not md_file:
+            # Help the model recover: suggest close matches (handles typos).
+            import difflib
+            all_paths = [str(f.relative_path).replace('\\', '/') for f in markdown_files]
+            suggestions = difflib.get_close_matches(path, all_paths, n=5, cutoff=0.4)
+            hint = f"\nDid you mean: {', '.join(suggestions)}" if suggestions else ""
+            return f"File not found: {path}. Use list_files() to see available paths.{hint}"
+
+        if md_file.content is None:
+            md_file.load()
+
+        if section:
+            chunks = get_chunks_for_file(md_file)
+            wanted = section.lower()
+            matches = [c for c in chunks if wanted in c.header_path.lower()]
+            if not matches:
+                sections = sorted({c.header_path for c in chunks})
+                return (
+                    f"No section matching '{section}' in {path}.\n"
+                    f"Available sections:\n" + "\n".join(f"- {s}" for s in sections)
+                )
+            header = f"# {path} — sections matching '{section}'\n\n"
+            return header + "\n\n---\n\n".join(c.content for c in matches)
+
+        content = md_file.content or ""
+        if len(content) > MAX_READ_CHARS:
+            return (
+                content[:MAX_READ_CHARS]
+                + f"\n\n[... truncated at {MAX_READ_CHARS} characters — "
+                f"use the 'section' argument to read a specific part]"
+            )
+        return content
 
     @mcp.tool()
     def rescan_folder() -> str:
@@ -315,7 +368,7 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
             result += f"```\n{snippet.snippet}\n```\n\n"
             result += f"   [Full file: md://{server_name}/{snippet.file_path}]\n\n"
 
-        result += "💡 Tip: Use `read_file_section()` to read a specific section.\n"
+        result += "💡 Tip: Use `read_file(path)` for the whole file, or `read_file(path, section=\"...\")` for one section.\n"
         result += f"\n📁 Tip: If files are missing, use `rescan_folder()` to refresh.\n"
         return result
 

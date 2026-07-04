@@ -5,10 +5,6 @@ change as they land.
 
 ## Planned
 
-- [ ] **Add `read_file(path, section=None)` tool** — the LLM currently gets
-  search snippets but has no tool to read a full file (resources aren't
-  surfaced by many MCP clients), and the search output tip references a
-  nonexistent `read_file_section()` tool.
 - [ ] **`MD_CACHE_DIR` for the semantic embeddings cache** — stop writing
   `.md-mcp-embeddings.json` into the notes folder so `/data` can stay `:ro`
   even with semantic search enabled.
@@ -19,4 +15,12 @@ change as they land.
 
 ## Done
 
-(entries move here as they land)
+- [x] **Add `read_file(path, section="")` tool** (`md_mcp/server.py`) — reads
+  a full file by relative path, or only the sections whose header path
+  matches `section` (case-insensitive; unmatched section returns the list of
+  available sections). Unknown paths return difflib-based "did you mean"
+  suggestions. Output capped at `MD_MAX_READ_CHARS` (default 60000) with a
+  truncation notice pointing at the `section` argument. The search_markdown
+  tip that referenced the nonexistent `read_file_section()` now points at
+  `read_file`. Verified via FastMCP client: full read, nested path, section
+  read, typo suggestion; existing 8-test suite passes.
