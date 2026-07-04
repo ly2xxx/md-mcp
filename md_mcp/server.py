@@ -33,6 +33,21 @@ except ImportError:
     FileSystemEventHandler = None  # type: ignore
 
 
+def _semantic_cache_dir(folder_path: str) -> str:
+    """Directory for the semantic embeddings cache — OUTSIDE the notes folder.
+
+    Writing the cache into the served folder forced users to drop the ``:ro``
+    mount for semantic search, giving up the "never writes to your notes"
+    guarantee. Override with ``MD_CACHE_DIR``; defaults to ``~/.cache/md-mcp``.
+    A digest of the folder path keeps caches of different served folders apart.
+    """
+    import hashlib
+
+    base = os.environ.get("MD_CACHE_DIR") or str(Path.home() / ".cache" / "md-mcp")
+    digest = hashlib.sha256(str(Path(folder_path).resolve()).encode()).hexdigest()[:16]
+    return str(Path(base) / digest)
+
+
 class MarkdownFileWatcher(FileSystemEventHandler):
     """Watches for changes to markdown files and invalidates cache."""
     
@@ -164,8 +179,7 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
         if not SEMANTIC_AVAILABLE:
             return None
         if semantic_index is None:
-            cache_dir = str(Path(folder_path))
-            semantic_index = SemanticIndex(cache_dir=cache_dir)
+            semantic_index = SemanticIndex(cache_dir=_semantic_cache_dir(folder_path))
         if not _index_built:
             chunks = get_all_chunks()
             if chunks:

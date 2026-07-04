@@ -5,15 +5,21 @@ change as they land.
 
 ## Planned
 
-- [ ] **`MD_CACHE_DIR` for the semantic embeddings cache** — stop writing
-  `.md-mcp-embeddings.json` into the notes folder so `/data` can stay `:ro`
-  even with semantic search enabled.
 - [ ] **Bound `list_files` output** — add a `pattern` filter and a `limit`
   so large vaults don't produce giant responses.
 - [ ] **Scanner improvements** — O(1) path lookup instead of linear scan;
   also index `.markdown` / `.mdx` files (scanner + file watcher).
 
 ## Done
+
+- [x] **`MD_CACHE_DIR` for the semantic embeddings cache** — new
+  `_semantic_cache_dir()` in `md_mcp/server.py`: the cache now lives at
+  `$MD_CACHE_DIR` (default `~/.cache/md-mcp`) under a per-folder digest
+  subdirectory, never inside the served notes folder. The notes mount can now
+  always stay `:ro`; docker-compose comment and docker/README semantic
+  section updated (including how to persist the cache with a named volume).
+  Note: existing caches written into notes folders are simply abandoned —
+  first semantic query re-embeds once into the new location.
 
 - [x] **Add `read_file(path, section="")` tool** (`md_mcp/server.py`) — reads
   a full file by relative path, or only the sections whose header path

@@ -315,8 +315,16 @@ Keyword search works out of the box. Semantic and hybrid strategies need
 docker build -f docker/Dockerfile --build-arg INSTALL_SEMANTIC=true -t md-mcp:semantic .
 ```
 
-When using semantic search, mount the folder **writable** (drop `:ro`) so the
-embedding cache can be stored alongside the docs.
+The notes folder stays **read-only** (`:ro`) even with semantic search: the
+embedding cache is written to `MD_CACHE_DIR` (default `~/.cache/md-mcp`, i.e.
+`/home/mcp/.cache/md-mcp` inside the container), never into your notes. To
+persist the cache across `--rm` runs, mount a volume there:
+
+```powershell
+docker run --rm -v C:/Users/you/notes:/data:ro `
+  -v md-mcp-cache:/home/mcp/.cache/md-mcp `
+  md-mcp:semantic
+```
 
 ---
 

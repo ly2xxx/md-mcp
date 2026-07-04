@@ -34,7 +34,8 @@ services:
       # OTEL_SERVICE_NAME: md-mcp
     volumes:
       # Defaults to the bundled sample docs; override with MD_HOST_FOLDER.
-      # Read-only is fine for keyword search. Drop ":ro" if you enable semantic
-      # search (it writes an embedding cache into the folder).
+      # Always read-only: the semantic embedding cache is written to
+      # MD_CACHE_DIR (default ~/.cache/md-mcp inside the container), never
+      # into the notes folder. Mount a volume there to persist it across runs.
       - "${MD_HOST_FOLDER:-./sample-docs}:/data:ro"
     restart: unless-stopped
