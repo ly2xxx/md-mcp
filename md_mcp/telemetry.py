@@ -160,6 +160,28 @@ def create_tracing_middleware():
     tool_counter = _tool_counter
     tool_duration = _tool_duration
 
+    def _parent_context():
+        """Extract W3C trace context from the incoming HTTP request, if any.
+
+        When the MCP client propagates `traceparent` (e.g. an OTel-instrumented
+        agent calling us over streamable-http), our spans join the caller's
+        distributed trace instead of starting a new one. Returns None for
+        stdio transport or non-instrumented clients, which preserves the
+        previous root-span behaviour.
+        """
+        try:
+            from fastmcp.server.dependencies import get_http_headers
+            from opentelemetry.trace.propagation.tracecontext import (
+                TraceContextTextMapPropagator,
+            )
+
+            headers = get_http_headers()  # {} outside an HTTP request (stdio)
+            if headers.get("traceparent"):
+                return TraceContextTextMapPropagator().extract(headers)
+        except Exception:
+            pass
+        return None
+
     class OtelMiddleware(Middleware):
         """Spans + metrics for tool calls; spans only for other MCP requests."""
 
@@ -167,7 +189,9 @@ def create_tracing_middleware():
             tool_name = getattr(context.message, "name", "unknown")
             arguments = getattr(context.message, "arguments", None) or {}
 
-            with tracer.start_as_current_span(f"mcp.tool/{tool_name}") as span:
+            with tracer.start_as_current_span(
+                f"mcp.tool/{tool_name}", context=_parent_context()
+            ) as span:
                 span.set_attribute("mcp.tool.name", tool_name)
                 span.set_attribute("mcp.method", context.method or "tools/call")
                 # Privacy default: record which arguments were passed, not
@@ -204,7 +228,9 @@ def create_tracing_middleware():
             if method == "tools/call":
                 # Handled with richer attributes by on_call_tool.
                 return await call_next(context)
-            with tracer.start_as_current_span(f"mcp.request/{method}") as span:
+            with tracer.start_as_current_span(
+                f"mcp.request/{method}", context=_parent_context()
+            ) as span:
                 span.set_attribute("mcp.method", method)
                 return await call_next(context)
 
