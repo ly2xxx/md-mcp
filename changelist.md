@@ -5,12 +5,16 @@ change as they land.
 
 ## Planned
 
-- [ ] **Bound `list_files` output** — add a `pattern` filter and a `limit`
-  so large vaults don't produce giant responses.
 - [ ] **Scanner improvements** — O(1) path lookup instead of linear scan;
   also index `.markdown` / `.mdx` files (scanner + file watcher).
 
 ## Done
+
+- [x] **Bound `list_files` output** — `list_files(pattern="", limit=100)`:
+  case-insensitive substring filter, or glob when the pattern contains
+  `*?[` (e.g. `projects/*.md`); output capped at `limit` with a "showing
+  first N" note and total count. Empty matches suggest retrying without a
+  pattern. Verified: substring, glob, limit truncation, and no-match paths.
 
 - [x] **`MD_CACHE_DIR` for the semantic embeddings cache** — new
   `_semantic_cache_dir()` in `md_mcp/server.py`: the cache now lives at

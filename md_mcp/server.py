@@ -292,25 +292,53 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
         )
 
     @mcp.tool()
-    def list_files() -> str:
-        """List all available markdown files.
-        
+    def list_files(pattern: str = "", limit: int = 100) -> str:
+        """List available markdown files.
+
+        Args:
+            pattern: Optional case-insensitive filter. Plain text matches as a
+                substring of the relative path; glob syntax (*, ?) is also
+                supported, e.g. "projects/*.md".
+            limit: Maximum number of files to list (default 100).
+
         Returns:
-            A list of all markdown files available in the server.
+            Matching files with descriptions, plus the total count if truncated.
         """
+        import fnmatch
+
         ensure_scanned()
-        
+
         if not markdown_files:
             return f"No markdown files found in {folder_path}."
-        
-        result = f"Found {len(markdown_files)} markdown file(s):\n\n"
-        for md_file in markdown_files:
-            path_str = str(md_file.relative_path).replace('\\', '/')
+
+        entries = [
+            (md_file, str(md_file.relative_path).replace('\\', '/'))
+            for md_file in markdown_files
+        ]
+        if pattern:
+            pat = pattern.lower()
+            if any(ch in pat for ch in "*?["):
+                entries = [e for e in entries if fnmatch.fnmatch(e[1].lower(), pat)]
+            else:
+                entries = [e for e in entries if pat in e[1].lower()]
+            if not entries:
+                return f"No files match '{pattern}' (of {len(markdown_files)} total). Try list_files() without a pattern."
+
+        total = len(entries)
+        shown = entries[: max(1, limit)]
+
+        result = f"Found {total} markdown file(s)"
+        if pattern:
+            result += f" matching '{pattern}'"
+        if total > len(shown):
+            result += f" — showing first {len(shown)} (raise 'limit' or narrow 'pattern' for more)"
+        result += ":\n\n"
+        for md_file, path_str in shown:
             result += f"- **{path_str}**\n"
             if md_file.description:
                 result += f"  Description: {md_file.description}\n"
             result += f"  [md://{server_name}/{path_str}]\n\n"
-            
+
         return result
 
     @mcp.tool()
