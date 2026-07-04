@@ -8,7 +8,7 @@ import time
 import sys
 from fastmcp import FastMCP
 
-from .scanner import MarkdownScanner, MarkdownFile
+from .scanner import MarkdownScanner, MarkdownFile, MARKDOWN_EXTENSIONS
 from .chunking import MarkdownChunker, Chunk
 from . import telemetry
 
@@ -59,8 +59,8 @@ class MarkdownFileWatcher(FileSystemEventHandler):
     
     def _should_invalidate(self, event_path: str) -> bool:
         """Check if we should invalidate cache for this event."""
-        # Only invalidate for markdown files
-        if not event_path.endswith('.md'):
+        # Only invalidate for markdown files (same set the scanner indexes)
+        if not event_path.lower().endswith(MARKDOWN_EXTENSIONS):
             return False
         
         # Debounce rapid changes

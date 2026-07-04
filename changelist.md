@@ -5,10 +5,17 @@ change as they land.
 
 ## Planned
 
-- [ ] **Scanner improvements** — O(1) path lookup instead of linear scan;
-  also index `.markdown` / `.mdx` files (scanner + file watcher).
-
 ## Done
+
+- [x] **Scanner improvements** — `MarkdownScanner` now indexes `.md`,
+  `.markdown` and `.mdx` (new shared `MARKDOWN_EXTENSIONS` constant) and
+  builds a relative-path dict during `scan()`, making
+  `get_file_by_relative_path` O(1) instead of a linear scan. The file
+  watcher's event filter uses the same extension set (it previously only
+  reacted to `.md`, so `.markdown`/`.mdx` edits would not have invalidated
+  the cache). Scan order is now sorted for deterministic listings. Not
+  changed: frontmatter parsing — flagged earlier as mangling colon values,
+  but it already uses `split(':', 1)`, so no fix was needed.
 
 - [x] **Bound `list_files` output** — `list_files(pattern="", limit=100)`:
   case-insensitive substring filter, or glob when the pattern contains
