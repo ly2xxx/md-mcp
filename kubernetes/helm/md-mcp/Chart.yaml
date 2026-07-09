@@ -1,0 +1,6 @@
+apiVersion: v2
+name: md-mcp
+description: A Helm chart for deploying md-mcp Server
+type: application
+version: 0.1.0
+appVersion: "latest"

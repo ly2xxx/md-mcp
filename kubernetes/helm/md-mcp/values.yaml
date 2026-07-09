@@ -1,0 +1,33 @@
+replicaCount: 1
+
+image:
+  repository: md-mcp
+  tag: local
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+
+# Mount local folder into Docker Desktop k8s pods. 
+# Adjust this to match your actual Windows path syntax supported by Docker Desktop (e.g. /run/desktop/mnt/host/c/Users/... or direct path depending on version).
+# A direct Windows path often works directly in Docker Desktop.
+mdFolder: "C:/Users/HP/notes"
+# The name to display in MCP client
+mdName: "k8s-notes"
+
+resources:
+  # Resources are REQUIRED for HorizontalPodAutoscaler to function
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  # targetMemoryUtilizationPercentage: 80
