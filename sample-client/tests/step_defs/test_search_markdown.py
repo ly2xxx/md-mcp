@@ -16,6 +16,11 @@ import os
 import sys
 from functools import partial
 
+# DeepEval's ToolCorrectnessMetric attempts to initialize a default OpenAI model
+# even when we are doing exact-matching and don't need an LLM. We supply a dummy
+# key here so it doesn't crash before doing the deterministic math.
+os.environ["OPENAI_API_KEY"] = "dummy-key-for-deepeval"
+
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -28,6 +33,7 @@ from mcpclient_llm import ask_ollama, extract_tool_call  # noqa: E402
 
 from deepeval.metrics import ToolCorrectnessMetric  # noqa: E402
 from deepeval.test_case import LLMTestCase, ToolCall  # noqa: E402
+from deepeval import assert_test  # noqa: E402
 
 
 # System prompt anchors smaller / cheaper models to the right tool. Without
@@ -117,15 +123,10 @@ def _tool_correctness(scenario_ctx, expected_tool):
         tools_called=[ToolCall(name=scenario_ctx["tool_name"])],
         expected_tools=[ToolCall(name=expected_tool)],
     )
-    # 2. Instantiate and measure using DeepEval's metric
+    # 2. Assert using DeepEval's built-in assert_test
+    # This automatically registers the test case with the CLI report!
     metric = ToolCorrectnessMetric()
-    metric.measure(test_case)
-    # 3. Assert whether the metric passed
-    assert metric.is_successful(), (
-        f"Tool routing failed for model {scenario_ctx.get('model')}: "
-        f"expected={expected_tool!r}, got={scenario_ctx['tool_name']!r}, "
-        f"reason={getattr(metric, 'reason', 'n/a')}"
-    )
+    assert_test(test_case, [metric])
 
 
 @then(parsers.parse('the tool result references "{expected_text}"'))
