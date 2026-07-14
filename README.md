@@ -25,7 +25,7 @@ pip install md-mcp
 #### Option B: Install from source code
 
 ```bash
-pip install -e .
+uv sync
 ```
 
 ### 2. Launch the Web UI (Recommended)
@@ -39,7 +39,7 @@ md-mcp --web
 If the command is not recognized (e.g., if the Python scripts directory is not in your system PATH), you can run:
 
 ```bash
-python -m md_mcp --web
+uv run python -m md_mcp --web
 ```
 
 *Just point at a folder and go!*
@@ -69,7 +69,7 @@ md-mcp --folder ~/Documents/notes --name "My Notes"
 - **Metadata Extraction**: Parses YAML frontmatter and first paragraphs for rich resource descriptions.
 - **Search Support**: Built-in search across all files to quickly find the needle in the haystack.
 - **Web Interface**: Easy-to-use visual dashboard for non-technical users to manage multiple knowledge bases.
-- **Observable by Default**: Optional OpenTelemetry instrumentation (`pip install "md-mcp[observability]"`) traces every MCP tool call — an audit trail of what your AI assistant actually did with your notes. See [docker/README.md](docker/README.md#optional-observability-opentelemetry).
+- **Observable by Default**: Optional OpenTelemetry instrumentation (`uv pip install "md-mcp[observability]"`) traces every MCP tool call — an audit trail of what your AI assistant actually did with your notes. See [docker/README.md](docker/README.md#optional-observability-opentelemetry).
 
 ---
 
@@ -110,11 +110,11 @@ md-mcp --folder ~/research/papers-md --name "Research"
 md-mcp --web
 
 # Or via Python module
-python -m md_mcp --web
+uv run python -m md_mcp --web
 
 # You can optionally specify a custom port (default is 5000)
 md-mcp --web --port 8080
-# or: python -m md_mcp --web --port 8080
+# or: uv run python -m md_mcp --web --port 8080
 ```
 
 ### Add a Markdown Folder
@@ -221,7 +221,7 @@ Search across all markdown files by content or filename.
 - **Semantic:** > "Search my docs for 'user authentication' using semantic search" *(Finds related concepts like login, OAuth, etc.)*
 - **Hybrid:** > "Search for 'docker setup' using hybrid search" *(Combines exact matching and conceptual matching)*
 
-*(Note: Semantic and hybrid search require `pip install md-mcp[semantic]`)*
+*(Note: Semantic and hybrid search require `uv pip install "md-mcp[semantic]"`, or installing with the extra flag)*
 
 ### 2. `list_files`
 
@@ -268,10 +268,25 @@ Add your config and run **Developer: Reload Window** from the Command Palette (`
 ### Config Entry Format
 
 ```json
+# With uv installed
 {
   "mcpServers": {
     "my-notes": {
-      "command": "C:\\Python\\python.exe",
+      "command": "uvx",
+      "args": [
+        "md-mcp",
+        "--folder", "C:\\Users\\Yang\\notes",
+        "--name", "my-notes"
+      ]
+    }
+  }
+}
+
+# Without uv installed
+{
+  "mcpServers": {
+    "my-notes": {
+      "command": "python",
       "args": [
         "-m", "md_mcp.server_runner",
         "--folder", "C:\\Users\\Yang\\notes",
@@ -295,9 +310,9 @@ Example `.vscode/mcp.json`:
 {
   "servers": {
     "my-notes": {
-      "command": "C:\\Python\\python.exe",
+      "command": "uvx",
       "args": [
-        "-m", "md_mcp.server_runner",
+        "md-mcp",
         "--folder", "C:\\Users\\Yang\\notes",
         "--name", "my-notes"
       ]
@@ -335,7 +350,7 @@ for f in files:
 
 ```bash
 # Run server directly (stdio mode)
-python -m md_mcp.server_runner --folder ~/notes --name test
+uv run python -m md_mcp.server_runner --folder ~/notes --name test
 
 # Server listens on stdin/stdout for MCP protocol
 ```
@@ -457,7 +472,8 @@ ls -la ~/notes
 ```bash
 git clone https://github.com/ly2xxx/md-mcp.git
 cd md-mcp
-pip install -e ".[dev]"
+uv sync --extra dev
+#Equivalent to (pip install -e ".[dev]")
 ```
 
 ### Run Tests
@@ -465,7 +481,7 @@ pip install -e ".[dev]"
 Run standard unit tests:
 
 ```bash
-pytest
+uv run pytest
 ```
 
 Run AI Agent integration tests (BDD + DeepEval):
@@ -481,7 +497,7 @@ uv run deepeval test run sample-client/tests/step_defs/test_search_markdown.py
 ### Format Code
 
 ```bash
-black md_mcp/
+uv run black md_mcp/
 ```
 
 ---
