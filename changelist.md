@@ -7,6 +7,23 @@ change as they land.
 
 ## Done
 
+- [x] **v1.0.6: natural-language keyword search fix** (`md_mcp/chunking.py`) —
+  `search_chunks` (the default `strategy="keyword"` of `search_markdown`)
+  required the ENTIRE query to appear verbatim in a chunk, so the
+  natural-language questions LLM callers actually send ("what is the logical
+  execution order of a SQL SELECT query?") returned zero results against
+  notes that contained the answer. Now matches on exact phrase OR any
+  content-bearing query term (new `_query_terms()` strips stopwords);
+  `calculate_relevance` scores per-term frequency (capped per term) with
+  exact-phrase bonuses (+3 content / +2 header) so verbatim matches still
+  rank on top; `extract_snippet` anchors on the line with the most query
+  terms instead of falling back to the first lines. Found live: the
+  langgraph_ollama RAG agent's md-mcp searches all came back empty and the
+  model answered from parametric knowledge instead of the notes. New
+  regression suite `test_search_natural_language.py`; existing chunking
+  tests pass. Also fixed `md_mcp/__init__.py` `__version__` which had been
+  stuck at 1.0.4 since the 1.0.5 release (bump script's sed matched nothing).
+
 - [x] **Scanner improvements** — `MarkdownScanner` now indexes `.md`,
   `.markdown` and `.mdx` (new shared `MARKDOWN_EXTENSIONS` constant) and
   builds a relative-path dict during `scan()`, making
