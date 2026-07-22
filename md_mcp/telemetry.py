@@ -176,7 +176,12 @@ def create_tracing_middleware():
             )
 
             headers = get_http_headers()  # {} outside an HTTP request (stdio)
-            if headers.get("traceparent"):
+            if not headers:
+                return None
+            headers_dict = {k.lower(): v for k, v in headers.items()} if hasattr(headers, "items") else {}
+            if "traceparent" in headers_dict:
+                return TraceContextTextMapPropagator().extract(headers_dict)
+            if hasattr(headers, "get") and headers.get("traceparent"):
                 return TraceContextTextMapPropagator().extract(headers)
         except Exception:
             pass
