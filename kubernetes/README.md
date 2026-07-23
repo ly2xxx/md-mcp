@@ -1,3 +1,5 @@
+![1784841961800](image/README/1784841961800.png)
+
 # Kubernetes Auto-Scaling Experiment
 
 This folder contains a Helm chart to deploy the `md-mcp` server to your local Docker Desktop Kubernetes cluster, complete with a **Horizontal Pod Autoscaler (HPA)**.
@@ -7,7 +9,7 @@ This folder contains a Helm chart to deploy the `md-mcp` server to your local Do
 1. Open Docker Desktop settings.
 2. Navigate to the **Kubernetes** tab.
 3. Check **Enable Kubernetes** and click Apply & Restart.
-4. Ensure you have [Helm installed](https://helm.sh/docs/intro/install/) (`winget install Helm.Helm` on Windows).
+4. Ensure you have [Helm installed](https://helm.sh/docs/intro/install/) (`winget install Helm.Helm` on Windows). To check: `helm version`
 
 ## Step 1: Install the Metrics Server
 
@@ -24,6 +26,10 @@ helm repo update
 # We MUST pass --kubelet-insecure-tls because Docker Desktop uses self-signed certs.
 helm install metrics-server metrics-server/metrics-server \
   --set args={--kubelet-insecure-tls} \
+  --namespace kube-system
+
+helm install metrics-server metrics-server/metrics-server `
+  --set "args={--kubelet-insecure-tls}" `
   --namespace kube-system
 ```
 
@@ -49,6 +55,8 @@ Now we deploy `md-mcp`. The Helm chart is located in `helm/md-mcp`.
 
    ```bash
    helm install my-md-mcp ./helm/md-mcp
+
+   Check:  kubectl describe pod -l app.kubernetes.io/name=md-mcp
    ```
 4. Check your deployment and pods:
 
@@ -66,13 +74,13 @@ Right now, you have `1` replica running because the CPU load is zero.
 To trigger the autoscaler, you need to generate HTTP traffic to the pod. Since the service is exposed as a `ClusterIP` on port `8000`, we can port-forward it to your localhost:
 
 ```bash
-kubectl port-forward svc/my-md-mcp 8000:8000
+kubectl port-forward svc/my-md-mcp 8001:8000
 ```
 
 Now, open another terminal and bombard it with requests! You can use a tool like `curl` in a loop, or an actual load testing tool like `hey` or `k6`. Or even a quick PowerShell loop:
 
 ```powershell
-while ($true) { Invoke-WebRequest -Uri http://localhost:8000/mcp -UseBasicParsing | Out-Null }
+while ($true) { Invoke-WebRequest -Uri http://localhost:8001/mcp -UseBasicParsing | Out-Null }
 ```
 
 As the CPU usage rises above `70%`, watch your HPA spin up new pods:

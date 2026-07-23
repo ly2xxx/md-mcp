@@ -1,8 +1,8 @@
 replicaCount: 1
 
 image:
-  repository: md-mcp
-  tag: local
+  repository: ly2xxx/md-mcp
+  tag: latest
   pullPolicy: IfNotPresent
 
 service:
@@ -12,7 +12,7 @@ service:
 # Mount local folder into Docker Desktop k8s pods. 
 # Adjust this to match your actual Windows path syntax supported by Docker Desktop (e.g. /run/desktop/mnt/host/c/Users/... or direct path depending on version).
 # A direct Windows path often works directly in Docker Desktop.
-mdFolder: "C:/Users/HP/notes"
+mdFolder: "/run/desktop/mnt/host/h/code/yl/md-mcp/kubernetes"
 # The name to display in MCP client
 mdName: "k8s-notes"
 
