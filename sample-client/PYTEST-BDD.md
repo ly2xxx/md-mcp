@@ -72,6 +72,25 @@ def assert_correct_file(result):
 
 ---
 
+### Execution Sequence & Architecture
+
+Understanding how the test framework actually runs is important because testing asynchronous MCP servers synchronously requires a specific setup. 
+
+**Code Execution Flow:**
+1. `pytest` command discovers the test file `test_search_markdown.py`.
+2. It automatically loads fixtures from `tests/conftest.py`, including `mcp_session`, which spawns a dedicated `md_mcp.server_runner` process for the test suite.
+3. In `test_search_markdown.py`, the `scenarios(...)` function binds the steps from `search_markdown.feature` to the python functions.
+4. For each scenario step (`Given`, `When`, `Then`), the corresponding python function executes. 
+5. During the `When` step, the test uses `ask_ollama` and `extract_tool_call` imported from `mcpclient_llm.py` to route the LLM query, but executes the tool directly against the test server created by `conftest.py`. *Note: The `main()` block of `mcpclient_llm.py` is never run during testing; it is strictly a standalone CLI application.*
+
+**Bridging Async MCP and Sync BDD (`anyio.from_thread`):**
+The `mcp` library uses asynchronous connections, but `pytest-bdd` steps are strictly synchronous. To resolve this:
+- `conftest.py` uses `anyio.from_thread.start_blocking_portal("asyncio")`.
+- This spins up a background thread running a dedicated `asyncio` event loop.
+- Synchronous test steps can now safely invoke asynchronous MCP methods by using `mcp_portal.call(session.call_tool, ...)`. This "blocks" the synchronous thread until the async work finishes on the portal thread, keeping all async context managers alive on a single task as required by `anyio`.
+
+---
+
 ### Best Example Resources
 
 | Resource                                                               | Link                                                   |

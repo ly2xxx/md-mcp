@@ -57,6 +57,8 @@ pip install md-mcp[semantic]      # enables sentence-transformers chunked search
 - **Privacy by design** — files stay local, real-time updates reflected; ties
   into "secure AI solution design / responsible data handling."
 
+![OpenTelemetry](otel.png)
+
 ## The one-liner
 > "An MCP server I shipped end-to-end — published to PyPI, containerised with
 > healthchecks, and deployable to Kubernetes — proving I own the path from

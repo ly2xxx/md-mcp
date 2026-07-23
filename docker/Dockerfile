@@ -29,10 +29,19 @@ COPY md_mcp ./md_mcp
 
 # Default: lightweight install (fastmcp, flask, watchdog).
 # Set INSTALL_SEMANTIC=true to also install sentence-transformers (heavy).
+# Set INSTALL_OBSERVABILITY=true to bake in OpenTelemetry export (small; the
+# telemetry module is a no-op unless the OTEL packages are installed AND a
+# collector is reachable, so this is safe to enable by default).
 ARG INSTALL_SEMANTIC=false
+ARG INSTALL_OBSERVABILITY=true
 RUN pip install --upgrade pip && \
-    if [ "$INSTALL_SEMANTIC" = "true" ]; then \
-        pip install ".[semantic]"; \
+    EXTRAS=""; \
+    if [ "$INSTALL_SEMANTIC" = "true" ]; then EXTRAS="semantic"; fi; \
+    if [ "$INSTALL_OBSERVABILITY" = "true" ]; then \
+        if [ -n "$EXTRAS" ]; then EXTRAS="$EXTRAS,observability"; else EXTRAS="observability"; fi; \
+    fi; \
+    if [ -n "$EXTRAS" ]; then \
+        pip install ".[$EXTRAS]"; \
     else \
         pip install .; \
     fi

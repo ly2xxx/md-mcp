@@ -56,9 +56,9 @@ ollama pull gpt-oss:20b-cloud
 ### Run
 
 ```PowerShell
-pytest -v
 $env:OPENAI_API_KEY="dummy_key"
 uv run pytest -v
+uv run deepeval test run sample-client/tests/step_defs/test_search_markdown.py
 ```
 
 LLM tool routing is inherently stochastic. The suite mitigates that two ways:

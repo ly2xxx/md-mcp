@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "md-mcp"
-version = "1.0.5"
+version = "1.0.6"
 description = "Instantly expose markdown folders as MCP servers for Claude Desktop"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -32,6 +32,13 @@ dependencies = [
 [project.optional-dependencies]
 semantic = [
     "sentence-transformers>=2.2.0",
+]
+# OpenTelemetry tracing/metrics for MCP tool calls — see md_mcp/telemetry.py.
+# Without this extra the telemetry module degrades to a no-op.
+observability = [
+    "opentelemetry-api>=1.25",
+    "opentelemetry-sdk>=1.25",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.25",
 ]
 dev = [
     "pytest>=7.0",

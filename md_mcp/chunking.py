@@ -4,6 +4,20 @@ import re
 from typing import List, Optional, Tuple
 from dataclasses import dataclass
 
+# Common words ignored when scoring keyword matches. Natural-language queries
+# from LLM callers ("what is the ... of a ...?") are mostly stopwords; scoring
+# them would drown out the terms that actually discriminate.
+_STOPWORDS = frozenset(
+    "a an and are as at be but by for from has have how in is it its of on or "
+    "that the this to was what when where which who why will with your my".split()
+)
+
+
+def _query_terms(query: str) -> List[str]:
+    """Lowercase content-bearing terms of a query (stopwords stripped)."""
+    words = re.findall(r"[a-z0-9]+", query.lower())
+    return [w for w in words if w not in _STOPWORDS and len(w) > 1]
+
 
 @dataclass
 class Chunk:
@@ -217,14 +231,26 @@ class MarkdownChunker:
         """
         query_lower = query.lower()
         lines = chunk.content.split('\n')
-        
-        # Find first matching line
+
+        # Find first line containing the whole phrase; otherwise the line with
+        # the highest count of individual query terms (natural-language queries
+        # rarely appear verbatim).
         match_line_idx = None
         for idx, line in enumerate(lines):
             if query_lower in line.lower():
                 match_line_idx = idx
                 break
-        
+
+        if match_line_idx is None:
+            terms = _query_terms(query)
+            best_hits = 0
+            for idx, line in enumerate(lines):
+                line_lower = line.lower()
+                hits = sum(1 for t in terms if t in line_lower)
+                if hits > best_hits:
+                    best_hits = hits
+                    match_line_idx = idx
+
         if match_line_idx is None:
             # Fallback: return first few lines
             return '\n'.join(lines[:min(5, len(lines))]) + "..."
@@ -248,37 +274,39 @@ class MarkdownChunker:
         Calculate relevance score for a chunk based on query.
         
         Simple scoring:
-        - Exact phrase match in header: +2.0
-        - Keyword in header: +1.0
-        - Frequency in content: +0.1 per occurrence
-        - Position bonus: +0.5 if in first 20% of file
-        
+        - Exact phrase match in content: +3.0, in header: +2.0
+        - Query term in header: +1.0 each
+        - Query term frequency in content: +0.1 per occurrence (capped)
+        - Position bonus: +0.5 if in first ~1000 chars of file
+
         Returns:
             Relevance score (higher is better)
         """
         score = 0.0
         query_lower = query.lower()
-        
-        # Header matching
         header_lower = chunk.header_path.lower()
+        content_lower = chunk.content.lower()
+        terms = _query_terms(query)
+
+        # Exact-phrase bonuses keep verbatim matches ranked on top.
+        if query_lower in content_lower:
+            score += 3.0
         if query_lower in header_lower:
             score += 2.0
         else:
-            # Keyword matching
-            query_words = query_lower.split()
-            for word in query_words:
-                if len(word) > 3 and word in header_lower:
+            for word in terms:
+                if word in header_lower:
                     score += 1.0
-        
-        # Content frequency
-        content_lower = chunk.content.lower()
-        occurrences = content_lower.count(query_lower)
-        score += occurrences * 0.1
-        
+
+        # Per-term content frequency; capped per term so one repeated word
+        # can't dominate multi-term relevance.
+        for word in terms:
+            score += min(content_lower.count(word), 5) * 0.1
+
         # Position bonus (early in file is better)
         if chunk.start_char < 1000:  # First ~1000 chars
             score += 0.5
-        
+
         return score
     
     def search_hybrid(
@@ -382,12 +410,22 @@ class MarkdownChunker:
         """
         results = []
         query_lower = query.lower()
-        
+        terms = _query_terms(query)
+
         for chunk in chunks:
-            if query_lower in chunk.content.lower():
+            content_lower = chunk.content.lower()
+            header_lower = chunk.header_path.lower()
+            # Match on the exact phrase OR any content-bearing query term.
+            # Requiring the whole query as a verbatim substring (the old
+            # behavior) made natural-language questions from LLM callers
+            # return nothing.
+            matched = query_lower in content_lower or any(
+                t in content_lower or t in header_lower for t in terms
+            )
+            if matched:
                 snippet = self.extract_snippet(chunk, query)
                 score = self.calculate_relevance(chunk, query)
-                
+
                 results.append(SearchSnippet(
                     file_path=chunk.file_path,
                     header_path=chunk.header_path,
@@ -397,8 +435,8 @@ class MarkdownChunker:
                     start_char=chunk.start_char,
                     end_char=chunk.end_char
                 ))
-        
+
         # Sort by relevance
         results.sort(key=lambda x: x.match_score, reverse=True)
-        
+
         return results[:max_results]

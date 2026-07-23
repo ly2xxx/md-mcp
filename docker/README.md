@@ -224,6 +224,9 @@ rebuild:
 | `MD_HOST` | `0.0.0.0` | Bind address (HTTP transports). Keep `0.0.0.0` inside containers. |
 | `MD_PORT` | `8000` | Bind port (HTTP transports). |
 | `MD_PATH` | `/mcp` | URL path of the MCP endpoint. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | *(unset)* | OTLP gRPC collector endpoint. Setting it activates OpenTelemetry tracing/metrics (see [Observability](#optional-observability-opentelemetry)). Unset = telemetry off. |
+| `OTEL_SERVICE_NAME` | `md-mcp` | Service name reported in traces/metrics. |
+| `MD_OTEL_RECORD_ARGUMENTS` | `false` | Record tool argument *values* in spans. Off by default — queries can contain note content. |
 
 Example — custom name and port:
 
@@ -251,6 +254,58 @@ docker build -f docker/Dockerfile -t md-mcp:local .   # from the repo root
 
 ---
 
+## Optional: observability (OpenTelemetry)
+
+The image ships with the OpenTelemetry SDK baked in (build arg
+`INSTALL_OBSERVABILITY=true` by default), but telemetry stays **off until you
+point it at a collector** via `OTEL_EXPORTER_OTLP_ENDPOINT`. When active, every
+MCP request becomes a trace span (tool name, duration, result size, status)
+plus Prometheus-style metrics (`mcp.tool.calls`, `mcp.tool.duration`).
+
+Claude Desktop stdio config with tracing enabled (the collector runs on the
+host, so the container reaches it via `host.docker.internal`):
+
+```json
+{
+  "mcpServers": {
+    "md-notes": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "MD_TRANSPORT=stdio",
+        "-e", "OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4317",
+        "-e", "OTEL_SERVICE_NAME=md-mcp",
+        "-v", "C:/Users/you/notes:/data:ro",
+        "ly2xxx/md-mcp:latest"
+      ]
+    }
+  }
+}
+```
+
+Any OTLP-gRPC collector works (OpenTelemetry Collector, Grafana Alloy, Jaeger
+all-in-one). Each `docker run --rm` session flushes its spans on exit, so every
+Claude session shows up as a complete trace.
+
+What this buys you — and what it doesn't:
+
+- **Audit trail**: a forensic record of every tool call the LLM made, useful
+  for spotting prompt-injection-driven misuse (unusual query patterns, mass
+  enumeration).
+- **Anomaly detection**: alert on call rates / error rates per tool.
+- **Not a security boundary**: telemetry is self-reported by the server
+  process. It audits *misuse of a trusted tool*; it cannot catch a *malicious
+  tool* (which would simply not report itself). The `:ro` mount, non-root user,
+  and network policy remain the actual controls.
+- **Privacy**: spans record argument *keys* only by default. Opt in to values
+  with `MD_OTEL_RECORD_ARGUMENTS=true` — but note search queries and traces of
+  them then persist in your tracing backend.
+
+Local dev without Docker: `pip install "md-mcp[observability]"` and set the
+same env vars.
+
+---
+
 ## Optional: semantic / hybrid search
 
 Keyword search works out of the box. Semantic and hybrid strategies need
@@ -260,8 +315,16 @@ Keyword search works out of the box. Semantic and hybrid strategies need
 docker build -f docker/Dockerfile --build-arg INSTALL_SEMANTIC=true -t md-mcp:semantic .
 ```
 
-When using semantic search, mount the folder **writable** (drop `:ro`) so the
-embedding cache can be stored alongside the docs.
+The notes folder stays **read-only** (`:ro`) even with semantic search: the
+embedding cache is written to `MD_CACHE_DIR` (default `~/.cache/md-mcp`, i.e.
+`/home/mcp/.cache/md-mcp` inside the container), never into your notes. To
+persist the cache across `--rm` runs, mount a volume there:
+
+```powershell
+docker run --rm -v C:/Users/you/notes:/data:ro `
+  -v md-mcp-cache:/home/mcp/.cache/md-mcp `
+  md-mcp:semantic
+```
 
 ---
 

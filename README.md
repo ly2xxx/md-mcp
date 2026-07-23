@@ -2,7 +2,7 @@
 
 **Transform from Prompt Engineering to Context Engineering.**
 
-A lightweight Python library that instantly exposes your local markdown documentation, notes, and knowledge bases to **any** AI tool that supports the Model Context Protocol (MCP) – including Claude Desktop. 
+A lightweight Python library that instantly exposes your local markdown documentation, notes, and knowledge bases to **any** AI tool that supports the Model Context Protocol (MCP) – including Claude Desktop.
 
 No embeddings, no preprocessing, and no uploading. Your files stay safely on your local machine, and any real-time updates are instantly reflected in your AI's context.
 
@@ -10,34 +10,44 @@ No embeddings, no preprocessing, and no uploading. Your files stay safely on you
 
 ![md-mcp Infographic](https://raw.githubusercontent.com/ly2xxx/md-mcp/main/image/md-mcp.png)
 
-
 ---
 
 ## 🚀 Quick Start
 
 ### 1. Install
+
 #### Option A: Install from pypi
+
 ```bash
 pip install md-mcp
 ```
+
 #### Option B: Install from source code
+
 ```bash
-pip install -e .
+uv sync
 ```
 
 ### 2. Launch the Web UI (Recommended)
+
 The easiest way to manage your markdown servers is through the visual dashboard:
+
 ```bash
 md-mcp --web
 ```
+
 If the command is not recognized (e.g., if the Python scripts directory is not in your system PATH), you can run:
+
 ```bash
-python -m md_mcp --web
+uv run python -m md_mcp --web
 ```
+
 *Just point at a folder and go!*
 
 ### 3. Or use the CLI
+
 If you prefer the command line:
+
 ```bash
 # Expose a folder of markdown files
 md-mcp --folder ~/Documents/notes --name "My Notes"
@@ -59,27 +69,34 @@ md-mcp --folder ~/Documents/notes --name "My Notes"
 - **Metadata Extraction**: Parses YAML frontmatter and first paragraphs for rich resource descriptions.
 - **Search Support**: Built-in search across all files to quickly find the needle in the haystack.
 - **Web Interface**: Easy-to-use visual dashboard for non-technical users to manage multiple knowledge bases.
+- **Observable by Default**: Optional OpenTelemetry instrumentation (`uv pip install "md-mcp[observability]"`) traces every MCP tool call — an audit trail of what your AI assistant actually did with your notes. See [docker/README.md](docker/README.md#optional-observability-opentelemetry).
 
 ---
 
 ## 🎯 Use Cases
 
 **1. Personal Knowledge Base**
+
 ```bash
 md-mcp --folder ~/obsidian-vault --name "Obsidian"
 ```
+
 → Claude can now read your entire Obsidian vault
 
 **2. Project Documentation**
+
 ```bash
 md-mcp --folder ~/code/myproject/docs --name "Project Docs"
 ```
+
 → Claude has full context on your project
 
 **3. Research Papers**
+
 ```bash
 md-mcp --folder ~/research/papers-md --name "Research"
 ```
+
 → Claude can reference your research notes
 
 ---
@@ -93,11 +110,11 @@ md-mcp --folder ~/research/papers-md --name "Research"
 md-mcp --web
 
 # Or via Python module
-python -m md_mcp --web
+uv run python -m md_mcp --web
 
 # You can optionally specify a custom port (default is 5000)
 md-mcp --web --port 8080
-# or: python -m md_mcp --web --port 8080
+# or: uv run python -m md_mcp --web --port 8080
 ```
 
 ### Add a Markdown Folder
@@ -148,24 +165,23 @@ md-mcp
 # Prompts for folder path
 ```
 
-
-
 ---
 
 ## 🔧 How It Works
 
 1. **You run the CLI:**
+
    ```bash
    md-mcp --folder ~/notes --name "Notes"
    ```
-
 2. **md-mcp:**
+
    - Scans folder for `.md` files
    - Extracts metadata (frontmatter, descriptions)
    - Updates Claude Desktop config
    - Registers MCP server entry
-
 3. **In Claude Desktop:**
+
    - Restart Claude
    - Server appears in MCP dropdown
    - All markdown files available as resources
@@ -193,27 +209,34 @@ Each markdown file becomes an **MCP Resource**:
 md-mcp provides three tools to Claude:
 
 ### 1. `search_markdown`
+
 Search across all markdown files by content or filename.
 
 **Usage in Claude:**
+
 - **Standard (keyword):** > "Search my notes for 'docker compose'"
 
 ⚠️ **Experimental features below: (may not work)**
+
 - **Semantic:** > "Search my docs for 'user authentication' using semantic search" *(Finds related concepts like login, OAuth, etc.)*
 - **Hybrid:** > "Search for 'docker setup' using hybrid search" *(Combines exact matching and conceptual matching)*
 
-*(Note: Semantic and hybrid search require `pip install md-mcp[semantic]`)*
+*(Note: Semantic and hybrid search require `uv pip install "md-mcp[semantic]"`, or installing with the extra flag)*
 
 ### 2. `list_files`
+
 List all available markdown files.
 
 **Usage in Claude:**
+
 > "What markdown files do I have about Python?"
 
 ### 3. `rescan_folder`
+
 Manually rescan the folder for new, modified, or deleted markdown files. Use this if the automatic file watcher is not available or if files are missing.
 
 **Usage in Claude:**
+
 > "Rescan the markdown folder to find my new notes"
 
 ---
@@ -230,7 +253,6 @@ Manually rescan the folder for new, modified, or deleted markdown files. Use thi
 
 ### Claude Desktop Config Location (Automatic)
 
-
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -246,10 +268,25 @@ Add your config and run **Developer: Reload Window** from the Command Palette (`
 ### Config Entry Format
 
 ```json
+# With uv installed
 {
   "mcpServers": {
     "my-notes": {
-      "command": "C:\\Python\\python.exe",
+      "command": "uvx",
+      "args": [
+        "md-mcp",
+        "--folder", "C:\\Users\\Yang\\notes",
+        "--name", "my-notes"
+      ]
+    }
+  }
+}
+
+# Without uv installed
+{
+  "mcpServers": {
+    "my-notes": {
+      "command": "python",
       "args": [
         "-m", "md_mcp.server_runner",
         "--folder", "C:\\Users\\Yang\\notes",
@@ -268,13 +305,14 @@ For workspace-level tools, use a file at `.vscode/mcp.json`. See [official VS Co
 > For workspace configs, the top-level key is `"servers"`, **not** `"mcpServers"`.
 
 Example `.vscode/mcp.json`:
+
 ```json
 {
   "servers": {
     "my-notes": {
-      "command": "C:\\Python\\python.exe",
+      "command": "uvx",
       "args": [
-        "-m", "md_mcp.server_runner",
+        "md-mcp",
         "--folder", "C:\\Users\\Yang\\notes",
         "--name", "my-notes"
       ]
@@ -286,10 +324,11 @@ Example `.vscode/mcp.json`:
 #### Sample Prompts to Test
 
 Once configured, try these prompts with your AI assistant:
+
 - "Search my-notes for 'Docker'"
 - "List markdown files in my-notes"
 - "What do my notes say about the system architecture?"
-![List markdown files](https://raw.githubusercontent.com/ly2xxx/md-mcp/main/image/list-markdown-files.png)
+  ![List markdown files](https://raw.githubusercontent.com/ly2xxx/md-mcp/main/image/list-markdown-files.png)
 
 ---
 
@@ -311,7 +350,7 @@ for f in files:
 
 ```bash
 # Run server directly (stdio mode)
-python -m md_mcp.server_runner --folder ~/notes --name test
+uv run python -m md_mcp.server_runner --folder ~/notes --name test
 
 # Server listens on stdin/stdout for MCP protocol
 ```
@@ -333,6 +372,7 @@ tags: [project, planning]
 ```
 
 **Extracted fields:**
+
 - `description` → Used as resource description
 - Other fields stored in `frontmatter` dict
 
@@ -345,6 +385,7 @@ If no frontmatter, first paragraph is used as description.
 - [ ] **v0.3:** Smart chunking for large files
 - [ ] **v0.4:** Semantic search with embeddings
 - [ ] **v1.0:** Use web UI for all operations
+
 ---
 
 ## 🐛 Troubleshooting
@@ -352,19 +393,19 @@ If no frontmatter, first paragraph is used as description.
 ### "Server not showing in Claude Desktop"
 
 1. Check config was updated:
+
    ```bash
    md-mcp --status
    ```
-
 2. Verify file exists:
+
    ```bash
    # Windows
    type %APPDATA%\Claude\claude_desktop_config.json
-   
+
    # Mac/Linux
    cat ~/.config/Claude/claude_desktop_config.json
    ```
-
 3. Restart Claude Desktop completely
 
 ### "No files found"
@@ -377,6 +418,7 @@ md-mcp --folder ~/notes --scan
 ### "Permission denied"
 
 Make sure the folder is readable:
+
 ```bash
 # Check permissions
 ls -la ~/notes
@@ -413,13 +455,13 @@ ls -la ~/notes
 
 ## 🤝 Comparison to Alternatives
 
-| Feature | md-mcp | Manual MCP Server | File Upload |
-|---------|--------|-------------------|-------------|
-| Setup Time | 30 seconds | Hours | Per-session |
-| Auto-Updates | ✅ | ❌ | ❌ |
-| Full Folder | ✅ | ✅ | ❌ |
-| Search | ✅ | Custom | ❌ |
-| One Command | ✅ | ❌ | ❌ |
+| Feature      | md-mcp     | Manual MCP Server | File Upload |
+| ------------ | ---------- | ----------------- | ----------- |
+| Setup Time   | 30 seconds | Hours             | Per-session |
+| Auto-Updates | ✅         | ❌                | ❌          |
+| Full Folder  | ✅         | ✅                | ❌          |
+| Search       | ✅         | Custom            | ❌          |
+| One Command  | ✅         | ❌                | ❌          |
 
 ---
 
@@ -430,19 +472,32 @@ ls -la ~/notes
 ```bash
 git clone https://github.com/ly2xxx/md-mcp.git
 cd md-mcp
-pip install -e ".[dev]"
+uv sync --extra dev
+#Equivalent to (pip install -e ".[dev]")
 ```
 
 ### Run Tests
 
+Run standard unit tests:
+
 ```bash
-pytest
+uv run pytest
 ```
+
+Run AI Agent integration tests (BDD + DeepEval):
+
+```bash
+uv run deepeval test run sample-client/tests/step_defs/test_search_markdown.py
+```
+
+*This project champions a new AI testing standard by combining Behavior-Driven Development (pytest-bdd) with LLM-as-a-judge metrics (DeepEval) to rigorously evaluate Agentic RAG workflows.*
+
+![1784038811777](image/README/BDD-deepeval.png)
 
 ### Format Code
 
 ```bash
-black md_mcp/
+uv run black md_mcp/
 ```
 
 ---
@@ -451,12 +506,12 @@ black md_mcp/
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-
 ---
 
 ## 🙏 Credits
 
 Inspired by:
+
 - [Model Context Protocol](https://github.com/modelcontextprotocol) by Anthropic
 - [netshare](https://github.com/ly2xxx/netshare) - File sharing tool by Yang Li
 
@@ -468,10 +523,8 @@ Issues: https://github.com/ly2xxx/md-mcp/issues
 
 ---
 
-**Built by:** Yang Li  
-**Date:** 2026-02-16  
+**Built by:** Yang Li
+**Date:** 2026-02-16
 
 🚀 **Just point at a folder and go!**
 ![point and go](https://raw.githubusercontent.com/ly2xxx/md-mcp/main/demo/point-and-go.png)
-
-

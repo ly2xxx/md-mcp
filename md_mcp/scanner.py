@@ -89,42 +89,45 @@ class MarkdownFile:
         }
 
 
+# Extensions treated as markdown. Keep in sync with MarkdownFileWatcher
+# (md_mcp/server.py), which uses MARKDOWN_EXTENSIONS for its event filter.
+MARKDOWN_EXTENSIONS = (".md", ".markdown", ".mdx")
+
+
 class MarkdownScanner:
     """Scans directories for markdown files."""
-    
+
     def __init__(self, folder_path: str):
         self.folder_path = Path(folder_path).expanduser().resolve()
         if not self.folder_path.exists():
             raise ValueError(f"Folder does not exist: {folder_path}")
         if not self.folder_path.is_dir():
             raise ValueError(f"Path is not a directory: {folder_path}")
-        
+
         self.files: List[MarkdownFile] = []
-    
+        self._by_relative_path: Dict[str, MarkdownFile] = {}
+
     def scan(self) -> List[MarkdownFile]:
         """Scan for markdown files recursively."""
         self.files = []
-        
-        for md_file in self.folder_path.rglob("*.md"):
-            if md_file.is_file():
+        self._by_relative_path = {}
+
+        for md_file in sorted(self.folder_path.rglob("*")):
+            if md_file.is_file() and md_file.suffix.lower() in MARKDOWN_EXTENSIONS:
                 try:
                     md_obj = MarkdownFile(md_file, self.folder_path)
                     self.files.append(md_obj)
+                    self._by_relative_path[str(md_obj.relative_path)] = md_obj
                 except Exception as e:
                     print(f"Warning: Skipping {md_file}: {e}")
-        
+
         return self.files
-    
+
     def get_file_by_relative_path(self, relative_path: str) -> Optional[MarkdownFile]:
-        """Get a markdown file by its relative path."""
+        """Get a markdown file by its relative path (O(1) dict lookup)."""
         # Normalize path separators
         relative_path = relative_path.replace('/', os.sep)
-        
-        for md_file in self.files:
-            if str(md_file.relative_path) == relative_path:
-                return md_file
-        
-        return None
+        return self._by_relative_path.get(relative_path)
     
     def search(self, query: str) -> List[MarkdownFile]:
         """Simple text search across all files."""

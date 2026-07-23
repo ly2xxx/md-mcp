@@ -1,14 +1,16 @@
 """FastMCP server implementation for markdown files with semantic chunking and auto-reload."""
 
 import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Optional
 import time
 import sys
 from fastmcp import FastMCP
 
-from .scanner import MarkdownScanner, MarkdownFile
+from .scanner import MarkdownScanner, MarkdownFile, MARKDOWN_EXTENSIONS
 from .chunking import MarkdownChunker, Chunk
+from . import telemetry
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -31,6 +33,21 @@ except ImportError:
     FileSystemEventHandler = None  # type: ignore
 
 
+def _semantic_cache_dir(folder_path: str) -> str:
+    """Directory for the semantic embeddings cache — OUTSIDE the notes folder.
+
+    Writing the cache into the served folder forced users to drop the ``:ro``
+    mount for semantic search, giving up the "never writes to your notes"
+    guarantee. Override with ``MD_CACHE_DIR``; defaults to ``~/.cache/md-mcp``.
+    A digest of the folder path keeps caches of different served folders apart.
+    """
+    import hashlib
+
+    base = os.environ.get("MD_CACHE_DIR") or str(Path.home() / ".cache" / "md-mcp")
+    digest = hashlib.sha256(str(Path(folder_path).resolve()).encode()).hexdigest()[:16]
+    return str(Path(base) / digest)
+
+
 class MarkdownFileWatcher(FileSystemEventHandler):
     """Watches for changes to markdown files and invalidates cache."""
     
@@ -42,8 +59,8 @@ class MarkdownFileWatcher(FileSystemEventHandler):
     
     def _should_invalidate(self, event_path: str) -> bool:
         """Check if we should invalidate cache for this event."""
-        # Only invalidate for markdown files
-        if not event_path.endswith('.md'):
+        # Only invalidate for markdown files (same set the scanner indexes)
+        if not event_path.lower().endswith(MARKDOWN_EXTENSIONS):
             return False
         
         # Debounce rapid changes
@@ -91,6 +108,17 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
     scanner = MarkdownScanner(folder_path)
     chunker = MarkdownChunker(max_chunk_size=1000, context_chars=200)
     mcp = FastMCP(server_name)
+
+    # Cap for read_file responses; huge files blow out the model's context.
+    MAX_READ_CHARS = int(os.environ.get("MD_MAX_READ_CHARS", "60000"))
+
+    # Optional OpenTelemetry tracing (no-op unless the `observability` extra is
+    # installed and a collector endpoint is reachable). Instruments every MCP
+    # request via middleware, so all tools below are covered automatically.
+    if telemetry.init_telemetry():
+        otel_middleware = telemetry.create_tracing_middleware()
+        if otel_middleware is not None:
+            mcp.add_middleware(otel_middleware)
 
     # Caches
     markdown_files: List[MarkdownFile] = []
@@ -151,8 +179,7 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
         if not SEMANTIC_AVAILABLE:
             return None
         if semantic_index is None:
-            cache_dir = str(Path(folder_path))
-            semantic_index = SemanticIndex(cache_dir=cache_dir)
+            semantic_index = SemanticIndex(cache_dir=_semantic_cache_dir(folder_path))
         if not _index_built:
             chunks = get_all_chunks()
             if chunks:
@@ -192,6 +219,55 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
         return md_file.content
 
     @mcp.tool()
+    def read_file(path: str, section: str = "") -> str:
+        """Read a markdown file by its relative path (as shown by list_files /
+        search_markdown), either in full or just one section.
+
+        Args:
+            path: Relative path of the file, e.g. "notes/project.md"
+            section: Optional header name (or part of one) to return only the
+                matching section(s) instead of the whole file, e.g. "Setup"
+
+        Returns:
+            The file content (or matching sections), or an error listing
+            similar paths if the file is not found.
+        """
+        ensure_scanned()
+        md_file = scanner.get_file_by_relative_path(path)
+        if not md_file:
+            # Help the model recover: suggest close matches (handles typos).
+            import difflib
+            all_paths = [str(f.relative_path).replace('\\', '/') for f in markdown_files]
+            suggestions = difflib.get_close_matches(path, all_paths, n=5, cutoff=0.4)
+            hint = f"\nDid you mean: {', '.join(suggestions)}" if suggestions else ""
+            return f"File not found: {path}. Use list_files() to see available paths.{hint}"
+
+        if md_file.content is None:
+            md_file.load()
+
+        if section:
+            chunks = get_chunks_for_file(md_file)
+            wanted = section.lower()
+            matches = [c for c in chunks if wanted in c.header_path.lower()]
+            if not matches:
+                sections = sorted({c.header_path for c in chunks})
+                return (
+                    f"No section matching '{section}' in {path}.\n"
+                    f"Available sections:\n" + "\n".join(f"- {s}" for s in sections)
+                )
+            header = f"# {path} — sections matching '{section}'\n\n"
+            return header + "\n\n---\n\n".join(c.content for c in matches)
+
+        content = md_file.content or ""
+        if len(content) > MAX_READ_CHARS:
+            return (
+                content[:MAX_READ_CHARS]
+                + f"\n\n[... truncated at {MAX_READ_CHARS} characters — "
+                f"use the 'section' argument to read a specific part]"
+            )
+        return content
+
+    @mcp.tool()
     def rescan_folder() -> str:
         """Manually rescan the folder for new, modified, or deleted markdown files.
         
@@ -216,25 +292,53 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
         )
 
     @mcp.tool()
-    def list_files() -> str:
-        """List all available markdown files.
-        
+    def list_files(pattern: str = "", limit: int = 100) -> str:
+        """List available markdown files.
+
+        Args:
+            pattern: Optional case-insensitive filter. Plain text matches as a
+                substring of the relative path; glob syntax (*, ?) is also
+                supported, e.g. "projects/*.md".
+            limit: Maximum number of files to list (default 100).
+
         Returns:
-            A list of all markdown files available in the server.
+            Matching files with descriptions, plus the total count if truncated.
         """
+        import fnmatch
+
         ensure_scanned()
-        
+
         if not markdown_files:
             return f"No markdown files found in {folder_path}."
-        
-        result = f"Found {len(markdown_files)} markdown file(s):\n\n"
-        for md_file in markdown_files:
-            path_str = str(md_file.relative_path).replace('\\', '/')
+
+        entries = [
+            (md_file, str(md_file.relative_path).replace('\\', '/'))
+            for md_file in markdown_files
+        ]
+        if pattern:
+            pat = pattern.lower()
+            if any(ch in pat for ch in "*?["):
+                entries = [e for e in entries if fnmatch.fnmatch(e[1].lower(), pat)]
+            else:
+                entries = [e for e in entries if pat in e[1].lower()]
+            if not entries:
+                return f"No files match '{pattern}' (of {len(markdown_files)} total). Try list_files() without a pattern."
+
+        total = len(entries)
+        shown = entries[: max(1, limit)]
+
+        result = f"Found {total} markdown file(s)"
+        if pattern:
+            result += f" matching '{pattern}'"
+        if total > len(shown):
+            result += f" — showing first {len(shown)} (raise 'limit' or narrow 'pattern' for more)"
+        result += ":\n\n"
+        for md_file, path_str in shown:
             result += f"- **{path_str}**\n"
             if md_file.description:
                 result += f"  Description: {md_file.description}\n"
             result += f"  [md://{server_name}/{path_str}]\n\n"
-            
+
         return result
 
     @mcp.tool()
@@ -306,7 +410,7 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
             result += f"```\n{snippet.snippet}\n```\n\n"
             result += f"   [Full file: md://{server_name}/{snippet.file_path}]\n\n"
 
-        result += "💡 Tip: Use `read_file_section()` to read a specific section.\n"
+        result += "💡 Tip: Use `read_file(path)` for the whole file, or `read_file(path, section=\"...\")` for one section.\n"
         result += f"\n📁 Tip: If files are missing, use `rescan_folder()` to refresh.\n"
         return result
 
