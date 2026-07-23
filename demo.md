@@ -50,12 +50,12 @@ pip install md-mcp[semantic]      # enables sentence-transformers chunked search
   with versioning/bump scripts and an install-verification step — engineering
   discipline, not a one-off script.
 - **Deployment maturity** — Dockerfile + healthcheck + entrypoint + k8s
-  manifests = the reliability/observability/deployment ownership the JD asks of
+  manifests = the reliability/observability/deployment/auto-scalability ownership the JD asks of
   a Lead.
 - **Graceful optionality** — semantic search degrades to keyword search if
   `sentence-transformers` isn't installed; production code that never hard-fails.
 - **Privacy by design** — files stay local, real-time updates reflected; ties
-  into "secure AI solution design / responsible data handling."
+  into "secure AI solution design / responsible data handling. Shared memory.md"
 
 ![OpenTelemetry](otel.png)
 
