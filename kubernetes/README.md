@@ -80,7 +80,7 @@ kubectl port-forward svc/my-md-mcp 8001:8000
 Now, open another terminal and bombard it with requests! You can use a tool like `curl` in a loop, or an actual load testing tool like `hey` or `k6`. Or even a quick PowerShell loop:
 
 ```powershell
-while ($true) { Invoke-WebRequest -Uri http://localhost:8001/mcp -UseBasicParsing | Out-Null }
+$ErrorActionPreference = "SilentlyContinue"; while ($true) { Invoke-WebRequest -Uri http://localhost:8001/mcp -Headers @{ Accept = "text/event-stream" } -UseBasicParsing | Out-Null }
 ```
 
 As the CPU usage rises above `70%`, watch your HPA spin up new pods:
