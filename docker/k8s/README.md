@@ -88,3 +88,23 @@ kubectl delete -f docker/k8s/md-runbooks.yaml -f docker/k8s/md-notes.yaml
 helm uninstall toolhive-operator -n toolhive-system
 helm uninstall toolhive-operator-crds
 ```
+
+## Troubleshooting
+
+### Docker Desktop Kubernetes Cluster Fails to Start (`EOF` on port 6443)
+
+If Docker Desktop's Kubernetes cluster fails to start or gets stuck in a `"Failed to start starting Kubernetes"` / connection error loop (`couldn't get current server API group list: Get "https://kubernetes.docker.internal:6443/api...": EOF`), stale PKI certificates or corrupted local context files may be preventing `kubeadm` initialization.
+
+1. **Quit Docker Desktop** (right-click the taskbar tray icon $\rightarrow$ Quit Docker Desktop).
+2. **Remove old cluster context and certificates** in PowerShell:
+   ```powershell
+   # Remove old cluster context and certificates
+   Remove-Item -Recurse -Force "$env:USERPROFILE\.kube" -ErrorAction SilentlyContinue
+   Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Docker\pki" -ErrorAction SilentlyContinue
+   ```
+3. **Reset & Re-enable in Docker Desktop**:
+   - Start Docker Desktop.
+   - Go to **Settings $\rightarrow$ Kubernetes**, toggle **Enable Kubernetes** OFF, and click **Apply & restart**.
+   - (Optional) Click the **Troubleshoot** (bug) icon in the top header $\rightarrow$ **Clean / Purge data** $\rightarrow$ select **Kubernetes** $\rightarrow$ **Delete**.
+   - Toggle **Enable Kubernetes** back ON and click **Apply & restart**.
+
