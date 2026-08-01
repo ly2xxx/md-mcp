@@ -56,6 +56,11 @@ docker buildx build --platform linux/amd64,linux/arm64 `
 * **`-t yourusername/md-mcp:1.0.0`**: A specific version tag (tied to your package release/git tag).
 * **`--push`**: Pushes the compiled multi-arch manifest directly to Docker Hub.
 
+To inspect the pushed multi-platform manifest and verify supported platforms:
+```powershell
+docker buildx imagetools inspect ly2xxx/md-mcp:latest
+```
+
 ---
 
 ## Automating with GitHub Actions (Optional)
