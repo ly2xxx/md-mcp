@@ -44,16 +44,20 @@ docker buildx inspect --bootstrap
 Run the build command from the **repository root**. Replace `yourusername` with your actual Docker Hub username.
 
 ```powershell
+# 1. Switch to existing multi-builder
+docker buildx use multi-builder
+
+# 2. Run your build and push command
 docker buildx build --platform linux/amd64,linux/arm64 `
   -f docker/Dockerfile `
-  -t yourusername/md-mcp:latest `
-  -t yourusername/md-mcp:1.0.4 `
+  -t ly2xxx/md-mcp:latest `
+  -t ly2xxx/md-mcp:1.0.6 `
   --push .
 ```
 
 * **`--platform linux/amd64,linux/arm64`**: Compiles the image for both architectures.
-* **`-t yourusername/md-mcp:latest`**: Tags it as the latest release.
-* **`-t yourusername/md-mcp:1.0.0`**: A specific version tag (tied to your package release/git tag).
+* **`-t ly2xxx/md-mcp:latest`**: Tags it as the latest release.
+* **`-t ly2xxx/md-mcp:1.0.6`**: A specific version tag (tied to your package release/git tag).
 * **`--push`**: Pushes the compiled multi-arch manifest directly to Docker Hub.
 
 To inspect the pushed multi-platform manifest and verify supported platforms:
