@@ -15,3 +15,4 @@ Feature: LLM-driven markdown search over MCP
       | gpt-oss:120b-cloud  |
       | gpt-oss:20b-cloud   |
       | minimax-m2.7:cloud  |
+      | glm-5.2:cloud       |
