@@ -10,8 +10,22 @@ from mcp.client.stdio import stdio_client
 # Defaulting to the 'test-samples' directory in the md-mcp project root.
 FOLDER_TO_SERVE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "test-samples"))
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "gpt-oss:120b-cloud"
+# Endpoint resolution, in priority order:
+#   OLLAMA_URL   - a full chat endpoint, used verbatim
+#   OLLAMA_HOST  - a host root; "/api/chat" is appended
+#   neither      - the local daemon, which is the interactive default
+#
+# Set OLLAMA_HOST=https://ollama.com together with OLLAMA_API_KEY to drive the
+# `:cloud` models without a local daemon, which is what CI does.
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+OLLAMA_URL = os.environ.get("OLLAMA_URL") or f"{OLLAMA_HOST}/api/chat"
+OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY", "")
+MODEL = os.environ.get("OLLAMA_MODEL") or "gpt-oss:120b-cloud"
+
+
+def _auth_headers() -> dict:
+    """Bearer auth for Ollama Cloud; empty for an unauthenticated local daemon."""
+    return {"Authorization": f"Bearer {OLLAMA_API_KEY}"} if OLLAMA_API_KEY else {}
 
 def ask_ollama(
     question: str,
@@ -62,6 +76,7 @@ def ask_ollama(
     response = requests.post(
         OLLAMA_URL,
         json=payload,
+        headers=_auth_headers(),
         timeout=timeout
     )
     response.raise_for_status()

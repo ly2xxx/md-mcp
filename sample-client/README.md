@@ -53,6 +53,39 @@ ollama pull gpt-oss:120b-cloud
 ollama pull gpt-oss:20b-cloud
 ```
 
+### Running against Ollama Cloud (no local daemon)
+
+`mcpclient_llm.py` talks to `http://localhost:11434` by default. Point it at
+Ollama Cloud instead — which is what CI does, since a hosted runner has no
+`ollama serve` — with two environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `OLLAMA_HOST` | Host root, e.g. `https://ollama.com`. `/api/chat` is appended. |
+| `OLLAMA_URL` | A full chat endpoint, used verbatim. Overrides `OLLAMA_HOST`. |
+| `OLLAMA_API_KEY` | Sent as `Authorization: Bearer`. Omit for a local daemon. |
+| `OLLAMA_MODEL` | Default model for the interactive client. The BDD suite overrides this per scenario row. |
+
+```bash
+export OLLAMA_HOST=https://ollama.com
+export OLLAMA_API_KEY=...
+export OPENAI_API_KEY=dummy_key
+uv run pytest -v
+```
+
+No local pull is needed in that mode — the `:cloud` tags resolve server-side.
+
+### In CI
+
+`.github/workflows/bdd-eval.yml` runs this suite on changes to `sample-client/`,
+`md_mcp/` or `test-samples/`, and on manual dispatch. It then has Ollama Cloud
+summarise the results into the job summary and a PR/commit comment. It needs the
+`OLLAMA_API_KEY` repository secret; without it the run skips cleanly, so forked
+PRs never fail on a missing key.
+
+Note that `ci.yml` runs `pytest --ignore=sample-client` — this suite is kept out
+of the main CI run because it makes real network calls to several models.
+
 ### Run
 
 ```PowerShell
