@@ -1,0 +1,276 @@
+name: BDD Eval (sample-client)
+
+# Runs the pytest-bdd suite documented in sample-client/PYTEST-BDD.md, then has
+# Ollama Cloud summarise the RESULTS via the same shared composite action used by
+# commit-delta-summary.yml.
+#
+# This is deliberately a separate workflow from ci.yml, which runs
+# `pytest --ignore=sample-client`: this suite drives real `:cloud` models over
+# the network, so it is slower, costs API calls, and is inherently less
+# deterministic than the unit tests.
+#
+# One-time setup (Settings -> Secrets and variables -> Actions):
+#   OLLAMA_API_KEY  (secret)   - required; drives BOTH the tests and the summary
+#   OLLAMA_MODEL    (variable) - optional; model used to write the summary
+#
+# Note: OLLAMA_MODEL selects the SUMMARISER model only. The models under test
+# are the Examples: table in sample-client/tests/features/search_markdown.feature.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sample-client/**"
+      - "md_mcp/**"
+      - "test-samples/**"
+      - ".github/workflows/bdd-eval.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "sample-client/**"
+      - "md_mcp/**"
+      - "test-samples/**"
+      - ".github/workflows/bdd-eval.yml"
+  workflow_dispatch:
+    inputs:
+      pytest_args:
+        description: "Extra args passed to pytest (e.g. -k qwen)"
+        required: false
+        default: ""
+      model:
+        description: "Ollama Cloud model used to write the summary"
+        required: false
+        default: ""
+      max_report_chars:
+        description: "Truncate the pytest report beyond this many characters"
+        required: false
+        default: "20000"
+
+permissions:
+  contents: write         # required to post a commit comment on push
+  pull-requests: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  # The suite talks to Ollama Cloud rather than a local daemon; there is no
+  # `ollama serve` on a hosted runner.
+  OLLAMA_HOST: https://ollama.com
+  # deepeval's ToolCorrectnessMetric constructs a default OpenAI model even for
+  # deterministic exact-matching, and crashes without a key present.
+  OPENAI_API_KEY: dummy-key-for-deepeval
+
+concurrency:
+  group: bdd-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bdd:
+    name: Run BDD suite & summarise results
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the summariser diffs two revisions, so it needs history
+
+      # Forked PRs never receive secrets. Skip cleanly rather than failing a
+      # contributor's build -- the same contract the shared action honours.
+      - name: Check for Ollama credentials
+        id: creds
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        run: |
+          if [ -z "${OLLAMA_API_KEY}" ]; then
+            echo "::warning::No OLLAMA_API_KEY (forked PRs never receive secrets) - skipping the BDD suite."
+            echo "_BDD eval skipped: no Ollama API key available._" >> "$GITHUB_STEP_SUMMARY"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install uv
+        if: steps.creds.outputs.available == 'true'
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        if: steps.creds.outputs.available == 'true'
+        run: |
+          uv venv
+          # dev extra carries pytest, pytest-bdd, requests and deepeval;
+          # mcp is the client half of the stdio transport the suite drives.
+          uv pip install -e ".[dev]" mcp
+
+      - name: Run BDD suite
+        id: bdd
+        if: steps.creds.outputs.available == 'true'
+        working-directory: sample-client
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          PYTEST_ARGS: ${{ inputs.pytest_args || github.event.inputs.pytest_args || '' }}
+        run: |
+          set -o pipefail
+          status=0
+          uv run pytest -v --color=no \
+            --junitxml=../bdd-results.xml \
+            ${PYTEST_ARGS} 2>&1 | tee ../bdd-output.txt || status=$?
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          echo "Exit status: ${status}"
+
+      - name: Build report
+        id: report
+        if: steps.creds.outputs.available == 'true'
+        env:
+          MAX_REPORT_CHARS: ${{ inputs.max_report_chars || github.event.inputs.max_report_chars || '20000' }}
+          STATUS: ${{ steps.bdd.outputs.status }}
+        run: |
+          set -euo pipefail
+          # Keep head and tail: the head carries the per-scenario PASSED/FAILED
+          # lines, the tail carries the failure tracebacks and the summary line.
+          total=$(wc -c < bdd-output.txt)
+          if [ "${total}" -gt "${MAX_REPORT_CHARS}" ]; then
+            half=$((MAX_REPORT_CHARS / 2))
+            {
+              head -c "${half}" bdd-output.txt
+              printf '\n\n...(report truncated at %s characters)...\n\n' "${MAX_REPORT_CHARS}"
+              tail -c "${half}" bdd-output.txt
+            } > bdd-report.txt
+          else
+            cp bdd-output.txt bdd-report.txt
+          fi
+
+          # Multiline value into $GITHUB_OUTPUT needs a delimiter that cannot
+          # appear in the payload.
+          delim="EOF_$(openssl rand -hex 8)"
+          {
+            echo "text<<${delim}"
+            cat bdd-report.txt
+            printf '\n'          # tail -c can cut mid-line; the delimiter must own its line
+            echo "${delim}"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "${STATUS}" = "0" ]; then
+            echo "verdict=PASSED" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=FAILED (pytest exit ${STATUS})" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Summarise results
+        id: summary
+        if: steps.creds.outputs.available == 'true'
+        uses: ly2xxx/.github/actions/commit-delta-summary@main
+        with:
+          model: ${{ inputs.model || github.event.inputs.model || vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
+          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
+          outfile: bdd-eval-summary.md
+          # Replace the action's default "you are reviewing a code change"
+          # instruction: the subject here is a test report, with the diff as
+          # supporting context for why a result may have changed.
+          system-prompt: |
+            You are reporting on a pytest-bdd run of the md-mcp sample client.
+
+            The suite asks an Ollama-hosted model a documentation question over
+            MCP and asserts two things per model: that it routed to the
+            `search_markdown` tool, and that the tool output referenced
+            `getting-started.md`. Each row of the Scenario Outline is a
+            different model under test, so a failure usually means one model
+            misrouted rather than that the server is broken.
+
+            The pytest report is given below under "Additional instructions".
+            A diff may follow it; treat the diff only as context for why a
+            result might have changed, and say so explicitly if nothing in the
+            diff plausibly explains a failure.
+
+            Write concise Markdown for a reviewer who has not seen the output:
+            ## Verdict
+            One line: did the suite pass, and if not, how many scenarios failed.
+            ## Per-model results
+            A table with columns Model | Result | Notes. One row per model in
+            the run. Read the model tags from the report; do not invent rows for
+            models that did not run.
+            ## Failures
+            For each failure, the assertion that fired and the likely cause
+            (misrouted tool, missing file reference, network/auth error,
+            timeout). Quote the relevant line. Omit this section if all passed.
+            ## Risks & things to check
+
+            Be specific and factual. Do not invent results that are not in the
+            report. If the run was cut short by an error rather than an
+            assertion, say so plainly.
+          custom-prompt: |
+            Overall result: ${{ steps.report.outputs.verdict }}
+
+            pytest report:
+            ${{ steps.report.outputs.text }}
+
+      - name: Upload results
+        if: always() && steps.creds.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bdd-eval-results
+          path: |
+            bdd-output.txt
+            bdd-results.xml
+            bdd-eval-summary.md
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Comment on the pull request
+        if: >-
+          github.event_name == 'pull_request'
+          && steps.summary.outputs.skipped == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('${{ steps.summary.outputs.summary-file }}', 'utf8');
+            const marker = '<!-- bdd-eval-summary -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const existing = (await github.paginate(
+              github.rest.issues.listComments, { owner, repo, issue_number }
+            )).find(c => c.body?.includes(marker));
+            const payload = `${marker}\n${body}`;
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: payload });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: payload });
+            }
+
+      - name: Comment on the commit
+        if: >-
+          github.event_name == 'push'
+          && steps.summary.outputs.skipped == 'false'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('${{ steps.summary.outputs.summary-file }}', 'utf8');
+            const marker = '<!-- bdd-eval-summary -->';
+            const { owner, repo } = context.repo;
+            const commit_sha = context.sha;
+            const comments = await github.rest.repos.listCommentsForCommit({
+              owner,
+              repo,
+              commit_sha,
+            });
+            const existing = comments.data.find(c => c.body?.includes(marker));
+            const payload = `${marker}\n${body}`;
+            if (!existing) {
+              await github.rest.repos.createCommitComment({
+                owner,
+                repo,
+                commit_sha,
+                body: payload,
+              });
+            }
+
+      # Last, so the summary is always published before the job goes red.
+      - name: Fail if the suite failed
+        if: >-
+          steps.creds.outputs.available == 'true'
+          && steps.bdd.outputs.status != '0'
+        run: |
+          echo "::error::BDD suite failed (pytest exit ${{ steps.bdd.outputs.status }}). See the job summary for the analysis."
+          exit 1
