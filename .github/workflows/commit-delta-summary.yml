@@ -1,0 +1,139 @@
+name: Commit Delta Summary
+
+# Summarises the diff between two revisions with Ollama Cloud, writes it to the
+# job summary, uploads it as an artifact, and posts one comment on the PR/commit.
+#
+# The logic lives in the shared composite action at ly2xxx/.github, so this file
+# only carries the triggers and the wiring.
+#
+# One-time setup (Settings -> Secrets and variables -> Actions):
+#   OLLAMA_API_KEY  (secret)   - required; without it the run skips cleanly
+#   OLLAMA_MODEL    (variable) - optional override of the default model
+#   MAX_DIFF_CHARS  (variable) - optional override of the diff truncation budget
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "uv.lock"
+      - "**/*.png"
+      - "archive/**"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "uv.lock"
+      - "**/*.png"
+      - "archive/**"
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Base revision (tag, branch or SHA)"
+        required: false
+        default: ""
+      head_ref:
+        description: "Head revision (tag, branch or SHA)"
+        required: false
+        default: "HEAD"
+      model:
+        description: "Ollama Cloud model"
+        required: false
+        default: "deepseek-v4-flash:cloud"
+      max_diff_chars:
+        description: "Truncate the diff beyond this many characters"
+        required: false
+        default: "60000"
+      custom_prompt:
+        description: "Additional instructions or custom prompt"
+        required: false
+        default: ""
+
+permissions:
+  contents: write         # required to post a commit comment on push
+  pull-requests: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: commit-delta-summary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  summarise:
+    name: Summarise delta via Ollama Cloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the summariser diffs two revisions, so it needs history
+
+      - name: Summarise
+        id: summary
+        uses: ly2xxx/.github/actions/commit-delta-summary@main
+        with:
+          base: ${{ inputs.base_ref || github.event.inputs.base_ref || '' }}
+          head: ${{ inputs.head_ref || github.event.inputs.head_ref || '' }}
+          model: ${{ inputs.model || github.event.inputs.model || vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
+          max-diff-chars: ${{ inputs.max_diff_chars || github.event.inputs.max_diff_chars || vars.MAX_DIFF_CHARS || '60000' }}
+          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
+          custom-prompt: ${{ inputs.custom_prompt || github.event.inputs.custom_prompt || vars.CUSTOM_PROMPT || 'This repository is md-mcp, a Python MCP server that exposes local Markdown folders to MCP clients. Call out explicitly any change to the MCP tool surface (tool names, parameters, return shapes), to chunking or search behaviour, and to the Docker/Kubernetes deployment assets. Flag anything that would break an existing MCP client or an existing indexed folder.' }}
+
+      - name: Upload summary
+        if: steps.summary.outputs.skipped == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: commit-delta-summary
+          path: ${{ steps.summary.outputs.summary-file }}
+          retention-days: 14
+
+      - name: Comment on the pull request
+        if: >-
+          github.event_name == 'pull_request'
+          && steps.summary.outputs.skipped == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('${{ steps.summary.outputs.summary-file }}', 'utf8');
+            const marker = '<!-- commit-delta-summary -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const existing = (await github.paginate(
+              github.rest.issues.listComments, { owner, repo, issue_number }
+            )).find(c => c.body?.includes(marker));
+            const payload = `${marker}\n${body}`;
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: payload });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: payload });
+            }
+
+      - name: Comment on the commit
+        if: >-
+          github.event_name == 'push'
+          && steps.summary.outputs.skipped == 'false'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('${{ steps.summary.outputs.summary-file }}', 'utf8');
+            const marker = '<!-- commit-delta-summary -->';
+            const { owner, repo } = context.repo;
+            const commit_sha = context.sha;
+            const comments = await github.rest.repos.listCommentsForCommit({
+              owner,
+              repo,
+              commit_sha,
+            });
+            const existing = comments.data.find(c => c.body?.includes(marker));
+            const payload = `${marker}\n${body}`;
+            if (!existing) {
+              await github.rest.repos.createCommitComment({
+                owner,
+                repo,
+                commit_sha,
+                body: payload,
+              });
+            }
