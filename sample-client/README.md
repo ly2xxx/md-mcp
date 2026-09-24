@@ -59,12 +59,12 @@ ollama pull gpt-oss:20b-cloud
 Ollama Cloud instead — which is what CI does, since a hosted runner has no
 `ollama serve` — with two environment variables:
 
-| Variable | Purpose |
-|---|---|
-| `OLLAMA_HOST` | Host root, e.g. `https://ollama.com`. `/api/chat` is appended. |
-| `OLLAMA_URL` | A full chat endpoint, used verbatim. Overrides `OLLAMA_HOST`. |
-| `OLLAMA_API_KEY` | Sent as `Authorization: Bearer`. Omit for a local daemon. |
-| `OLLAMA_MODEL` | Default model for the interactive client. The BDD suite overrides this per scenario row. |
+| Variable           | Purpose                                                                                  |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| `OLLAMA_HOST`    | Host root, e.g.`https://ollama.com`. `/api/chat` is appended.                        |
+| `OLLAMA_URL`     | A full chat endpoint, used verbatim. Overrides`OLLAMA_HOST`.                           |
+| `OLLAMA_API_KEY` | Sent as`Authorization: Bearer`. Omit for a local daemon.                               |
+| `OLLAMA_MODEL`   | Default model for the interactive client. The BDD suite overrides this per scenario row. |
 
 ```bash
 export OLLAMA_HOST=https://ollama.com
