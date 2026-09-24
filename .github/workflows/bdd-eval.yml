@@ -19,11 +19,10 @@ name: BDD Eval (sample-client)
 on:
   push:
     branches: [main]
-    paths:
-      - "sample-client/**"
-      - "md_mcp/**"
-      - "test-samples/**"
-      - ".github/workflows/bdd-eval.yml"
+    paths-ignore:
+      - "uv.lock"
+      - "**/*.png"
+      - "archive/**"
   pull_request:
     branches: [main]
     paths:
@@ -111,7 +110,11 @@ jobs:
         run: |
           set -o pipefail
           status=0
-          uv run pytest -v --color=no \
+          # `deepeval test run` wraps pytest with deepeval's plugin (metrics
+          # table, test-run tracking); unrecognised flags pass through to
+          # pytest and pytest's exit code is propagated.
+          uv run deepeval test run tests/step_defs/test_search_markdown.py \
+            -v --color=no \
             --junitxml=../bdd-results.xml \
             ${PYTEST_ARGS} 2>&1 | tee ../bdd-output.txt || status=$?
           echo "status=${status}" >> "$GITHUB_OUTPUT"

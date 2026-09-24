@@ -33,4 +33,3 @@ jobs:
     - name: Test with pytest
       run: |
         uv run pytest --ignore=sample-client
-        uv run deepeval test run sample-client/tests/step_defs/test_search_markdown.py
