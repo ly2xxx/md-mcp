@@ -1,5 +1,5 @@
 name: SDLC Stage
-description: Run one stage of the intent -> spec -> plan -> build pipeline with Ollama Cloud, or open the pull request for it.
+description: Run one stage of the idea -> intent -> spec -> plan -> build pipeline with Ollama Cloud, or open the pull request for it.
 author: ly2xxx
 
 # One action, two modes, meant for two jobs:
@@ -14,12 +14,16 @@ inputs:
   mode:
     description: generate or propose.
     required: true
+  idea:
+    description: One line. Drafts intent.md for a new feature, or revises the named feature's intent.
+    required: false
+    default: ""
   feature:
-    description: Folder under features-dir. Empty means the one changed by the push.
+    description: Folder under features-dir. Empty means a new folder (with an idea) or the one the push changed.
     required: false
     default: ""
   stage:
-    description: spec, plan, build, or next (the first artifact the feature is missing).
+    description: intent, spec, plan, build, or next (the first artifact the feature is missing).
     required: false
     default: next
   features-dir:
@@ -89,6 +93,7 @@ runs:
       shell: bash
       env:
         SDLC_OUT: ${{ runner.temp }}/sdlc-out
+        SDLC_IDEA: ${{ inputs.idea }}
         SDLC_FEATURE: ${{ inputs.feature }}
         SDLC_STAGE: ${{ inputs.stage }}
         FEATURES_DIR: ${{ inputs.features-dir }}
@@ -99,6 +104,8 @@ runs:
         TEST_COMMAND: ${{ inputs.test-command }}
         MAX_ATTEMPTS: ${{ inputs.max-attempts }}
         MAX_CONTEXT_CHARS: ${{ inputs.max-context-chars }}
+        EVENT_NAME: ${{ github.event_name }}
+        ACTOR: ${{ github.actor }}
         PUSH_BEFORE: ${{ github.event.before }}
         PUSH_AFTER: ${{ github.sha }}
       run: |
