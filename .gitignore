@@ -39,8 +39,9 @@ pypi-build/.env
 pypi-build/logs/
 PROMOTION_PLAN.md
 
-# claude
-.claude
+# claude: local settings stay private; shared skills are committed
+.claude/*
+!.claude/skills/
 
 # Docker
 docker/.env

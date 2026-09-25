@@ -7,7 +7,7 @@ Write Markdown in exactly this shape:
 
 # Intent: <a short title>
 
-**Owner:** <the owner given below> · **Status:** proposed (merging this PR approves it)
+**Owner:** <the owner given below> · **Status:** proposed (approving the review gate approves it)
 
 ## Problem
 Who has the problem and what it costs them, in two to four sentences.
