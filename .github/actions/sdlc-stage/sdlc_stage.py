@@ -23,10 +23,11 @@ import urllib.request
 from pathlib import Path
 
 ACTION_DIR = Path(__file__).resolve().parent
-STAGES = ("spec", "plan", "build")
-# The artifact each stage writes; a feature's next stage is the first one missing.
-ARTIFACT = {"spec": "spec.md", "plan": "plan.md", "build": "build-report.md"}
-NEXT_ON_MERGE = {"spec": "plan", "plan": "build", "build": None}
+STAGES = ("intent", "spec", "plan", "build")
+ARTIFACT = {"intent": "intent.md", "spec": "spec.md", "plan": "plan.md", "build": "build-report.md"}
+# Merging a stage's artifact starts the next stage.
+NEXT_ON_MERGE = {"intent": "spec", "spec": "plan", "plan": "build", "build": None}
+FEATURE_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 
 
 def env(name, default=""):
@@ -73,9 +74,21 @@ def is_test_file(path):
             or "tests" in Path(path).parts)
 
 
-def path_problem(path, existing, allowed=None):
+def own_files(feature_path):
+    """Files this feature's earlier build wrote, from its build-report.md. Its own
+    tests may be revised; everyone else's stay frozen."""
+    report = Path(feature_path, ARTIFACT["build"])
+    if not report.exists():
+        return set()
+    m = re.search(r"^## Files written\s*\n(.*?)(?=^## |\Z)", report.read_text(encoding="utf-8"),
+                  flags=re.MULTILINE | re.DOTALL)
+    return set(re.findall(r"^- `([^`]+)`", m.group(1), flags=re.MULTILINE)) if m else set()
+
+
+def path_problem(path, existing, allowed=None, own=()):
     """Why the model may not write `path`, or None. `existing` is the set of files
-    tracked at the base commit; `allowed` is the plan's file list, if any."""
+    tracked at the base commit; `allowed` is the plan's file list, if any; `own`
+    are files this feature's earlier build wrote."""
     p = Path(path)
     if not path or p.is_absolute() or ".." in p.parts or path != p.as_posix():
         return "not a clean relative path"
@@ -83,7 +96,7 @@ def path_problem(path, existing, allowed=None):
         return "the pipeline may not change .git or .github"
     if allowed is not None and path not in allowed:
         return "not in the plan's Files list"
-    if path in existing and is_test_file(path):
+    if path in existing and is_test_file(path) and path not in own:
         return "existing tests are frozen; add a new test file instead"
     return None
 
@@ -170,36 +183,76 @@ def plan_files(plan_text):
 
 # ---------------------------------------------------------------- generate
 
-def pick_feature(features_dir):
-    feature = env("SDLC_FEATURE")
-    if feature:
-        return feature
+def from_push(features_dir):
+    """The feature a push changed, and the stage after the earliest artifact it
+    changed: a merged intent starts spec, a merged spec starts plan, and so on.
+    So a revised intent regenerates everything below it."""
     before, after = env("PUSH_BEFORE"), env("PUSH_AFTER", "HEAD")
     if not before or set(before) == {"0"}:
         changed = git("diff-tree", "--no-commit-id", "--name-only", "-r", after)
     else:
         changed = git("diff", "--name-only", before, after)
-    names = sorted({Path(p).parts[len(Path(features_dir).parts)]
-                    for p in changed.splitlines()
-                    if p.startswith(features_dir + "/") and Path(p).name in ("intent.md", "spec.md", "plan.md")})
+    depth = len(Path(features_dir).parts)
+    by_feature = {}
+    for p in changed.splitlines():
+        parts = Path(p).parts
+        if p.startswith(features_dir + "/") and len(parts) == depth + 2:
+            stage = next((s for s in STAGES[:3] if ARTIFACT[s] == parts[-1]), None)
+            if stage:
+                by_feature.setdefault(parts[depth], set()).add(stage)
+    if not by_feature:
+        return "", ""
+    names = sorted(by_feature)
     if len(names) > 1:
         print(f"::warning::Several features changed ({', '.join(names)}); running {names[0]} only.")
-    return names[0] if names else ""
+    earliest = min(by_feature[names[0]], key=STAGES.index)
+    return names[0], NEXT_ON_MERGE[earliest]
 
 
-def pick_stage(feature_path):
-    stage = env("SDLC_STAGE", "next")
-    if stage in STAGES:
-        return stage
-    for s in STAGES:
-        if not (feature_path / ARTIFACT[s]).exists():
-            return s
-    return ""
+def first_missing(feature_path):
+    return next((s for s in STAGES[1:] if not (feature_path / ARTIFACT[s]).exists()), "")
+
+
+def new_feature_name(features_dir, idea):
+    """NNN-slug-of-the-idea, numbered after the highest existing feature."""
+    root = Path(features_dir)
+    numbers = [int(m.group(1)) for d in (root.iterdir() if root.is_dir() else [])
+               if (m := re.match(r"(\d+)-", d.name))]
+    words = re.findall(r"[a-z0-9]+", idea.lower())[:6]
+    slug = "-".join(words)[:40].strip("-") or "feature"
+    return f"{max(numbers, default=0) + 1:03d}-{slug}"
 
 
 def header(stage, model, sources):
     head = git("rev-parse", "--short", "HEAD")
     return f"<!-- sdlc stage={stage} model={model} from={','.join(sources)}@{head} -->\n"
+
+
+def run_intent(feature_path, files, budget, idea):
+    """Draft intent.md from a one-line idea, or revise the existing one with it."""
+    model = env("OLLAMA_MODEL", "deepseek-v4-flash:cloud")
+    existing = feature_path / "intent.md"
+    parts = [(ACTION_DIR / "prompts" / "intent.md").read_text(encoding="utf-8"),
+             f"## Owner\n@{env('ACTOR', 'unknown')}",
+             "## The idea\n" + idea]
+    sources = ["idea"]
+    if existing.exists():
+        parts.append("## Existing intent.md (revise this; keep what the idea does not change)\n"
+                     + existing.read_text(encoding="utf-8"))
+        sources.append("intent.md")
+    parts.append("## Repository files\n" + repo_tree(files))
+    readme = Path("README.md")
+    if readme.exists():
+        parts.append("## README.md (start)\n" + readme.read_text(encoding="utf-8")[:4000])
+    used = sum(map(len, parts))
+    for path in mentioned_files(idea, files):
+        if budget - used < 1000:
+            break
+        block = file_block(path, budget - used)
+        parts.append(block)
+        used += len(block)
+    text = unfence(chat(model, "\n\n".join(parts)))
+    return {ARTIFACT["intent"]: header("intent", model, sources) + text + "\n"}, "n/a", model
 
 
 def run_doc_stage(stage, feature_path, files, budget):
@@ -231,7 +284,8 @@ def run_doc_stage(stage, feature_path, files, budget):
         listed = plan_files(text)
         if not listed:
             fail("The plan has no '## Files' section, so the build stage would not know what it may change.")
-        blocked = [f"{p} ({why})" for p in listed if (why := path_problem(p, files))]
+        own = own_files(feature_path)
+        blocked = [f"{p} ({why})" for p in listed if (why := path_problem(p, files, own=own))]
         if blocked:
             fail("The plan lists files the build may not touch: " + "; ".join(blocked))
     return {ARTIFACT[stage]: header(stage, model, sources) + text + "\n"}, "n/a", model
@@ -264,7 +318,8 @@ def run_build(feature_path, files, budget):
     if not allowed:
         fail("plan.md has no '## Files' section.")
     # Checked again here: a person may have edited plan.md on the plan PR.
-    blocked = [f"{p} ({why})" for p in allowed if (why := path_problem(p, files))]
+    own = own_files(feature_path)
+    blocked = [f"{p} ({why})" for p in allowed if (why := path_problem(p, files, own=own))]
     if blocked:
         fail("The plan lists files the build may not touch: " + "; ".join(blocked))
 
@@ -300,7 +355,7 @@ def run_build(feature_path, files, budget):
         rejected = []
         for change in changes:
             path, content = str(change.get("path", "")), change.get("content")
-            why = path_problem(path, files, allowed) or (None if isinstance(content, str) else "no content")
+            why = path_problem(path, files, allowed, own) or (None if isinstance(content, str) else "no content")
             if why:
                 rejected.append(f"{path}: {why}")
                 continue
@@ -337,20 +392,38 @@ def run_build(feature_path, files, budget):
 def generate():
     features_dir = env("FEATURES_DIR", "sdlc/features").strip("/")
     out_dir = Path(env("SDLC_OUT") or fail("SDLC_OUT is not set"))
-    feature = pick_feature(features_dir)
-    if not feature:
-        print("No feature artifact changed; nothing to do.")
-        return set_output(stage="", feature="")
-    if "/" in feature or feature.startswith("."):
-        fail(f"Bad feature name: {feature}")
+    idea, stage, feature = env("SDLC_IDEA"), env("SDLC_STAGE", "next"), env("SDLC_FEATURE")
+    if stage not in ("next", *STAGES):
+        fail(f"Unknown stage: {stage}")
+    if idea:
+        if stage not in ("next", "intent"):
+            fail("An idea only drives the intent stage. Leave the stage on next or intent.")
+        stage = "intent"
+    elif stage == "intent":
+        fail("The intent stage needs an idea.")
+
+    if stage == "intent":
+        feature = feature or new_feature_name(features_dir, idea)
+    elif not feature:
+        if env("EVENT_NAME") != "push":
+            fail("Name the feature folder, or give an idea to start a new feature.")
+        feature, stage = from_push(features_dir)
+        if not feature:
+            print("No feature artifact changed; nothing to do.")
+            return set_output(stage="", feature="")
+        if not stage:
+            print("A build report changed; nothing follows it.")
+            return set_output(stage="", feature=feature)
+    if not FEATURE_NAME.fullmatch(feature):
+        fail(f"Bad feature name '{feature}': use lowercase letters, digits and hyphens.")
     feature_path = Path(features_dir) / feature
-    if not (feature_path / "intent.md").exists():
-        fail(f"{feature_path}/intent.md does not exist")
-    stage = pick_stage(feature_path)
-    if not stage:
-        print(f"{feature} already has every artifact; nothing to do.")
-        return set_output(stage="", feature=feature)
-    needed = {"plan": ["spec.md"], "build": ["spec.md", "plan.md"]}.get(stage, [])
+    if stage == "next":
+        stage = first_missing(feature_path)
+        if not stage:
+            print(f"{feature} already has every artifact; nothing to do.")
+            return set_output(stage="", feature=feature)
+    needed = {"spec": ["intent.md"], "plan": ["intent.md", "spec.md"],
+              "build": ["intent.md", "spec.md", "plan.md"]}.get(stage, [])
     missing = [n for n in needed if not (feature_path / n).exists()]
     if missing:
         fail(f"The {stage} stage needs {', '.join(missing)} in {feature_path}")
@@ -358,13 +431,22 @@ def generate():
     files = tracked_files()
     budget = int(env("MAX_CONTEXT_CHARS", "60000"))
     print(f"Running the {stage} stage for {feature}")
+    revision = stage == "intent" and (feature_path / "intent.md").exists()
+    downstream = [ARTIFACT[s] for s in STAGES[1:] if (feature_path / ARTIFACT[s]).exists()]
+    if revision:
+        print(f"::warning::{feature} already has an intent.md. This run proposes a revision; "
+              "the PR diff shows what changes"
+              + (f", and merging it regenerates {', '.join(downstream)}." if downstream else "."))
     if stage == "build":
         produced, gate, model = run_build(feature_path, files, budget)
+    elif stage == "intent":
+        produced, gate, model = run_intent(feature_path, files, budget, idea)
     else:
         produced, gate, model = run_doc_stage(stage, feature_path, files, budget)
 
     # Everything the propose job needs, keyed by repository path.
-    manifest = {"feature": feature, "stage": stage, "gate": gate, "model": model, "files": []}
+    manifest = {"feature": feature, "stage": stage, "gate": gate, "model": model,
+                "files": []}
     for rel, content in produced.items():
         path = str(feature_path / rel) if rel in ARTIFACT.values() else rel
         target = out_dir / "files" / path
@@ -384,7 +466,7 @@ def propose():
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     feature, stage, gate = manifest["feature"], manifest["stage"], manifest["gate"]
     features_dir = env("FEATURES_DIR", "sdlc/features").strip("/")
-    if stage not in STAGES or "/" in feature or feature.startswith("."):
+    if stage not in STAGES or not FEATURE_NAME.fullmatch(str(feature)):
         fail("The manifest is malformed.")
     feature_path = f"{features_dir}/{feature}"
     files = tracked_files()
@@ -392,11 +474,14 @@ def propose():
     # Doc stages may write only their own artifact. The build may also write what
     # plan.md allows, read from this checkout rather than from the artifact.
     allowed = {own}
+    own_tests = own_files(feature_path)
+    # Decided from this checkout, before anything is copied, not from the artifact's say-so.
+    revision = stage == "intent" and Path(own).exists()
     if stage == "build":
         allowed |= set(plan_files(Path(feature_path, "plan.md").read_text(encoding="utf-8")))
     # Check everything before copying anything.
     for path in manifest["files"]:
-        why = path_problem(path, files, allowed)
+        why = path_problem(path, files, allowed, own_tests)
         if why:
             fail(f"Refusing {path}: {why}")
         src = out_dir / "files" / path
@@ -415,6 +500,8 @@ def propose():
     git("switch", "-C", branch)
     git("add", "--", *manifest["files"])
     title = f"sdlc({feature}): {stage}"
+    if revision:
+        title += " (revision)"
     if stage == "build" and gate != "passed":
         title += " [gate failed]"
     git("commit", "-m", f"{title}\n\nGenerated by the {stage} stage with {manifest['model']}.")
@@ -428,6 +515,11 @@ def propose():
             + (f"Merging starts the **{nxt}** stage." if nxt else "Merging ships the change."), ""]
     if stage == "build" and gate != "passed":
         body.append("The tests did not pass, so this is a draft. The report shows each attempt.")
+    if revision:
+        regen = ", ".join(f"`{ARTIFACT[s]}`" for s in STAGES[1:] if Path(feature_path, ARTIFACT[s]).exists())
+        body.append("> [!WARNING]\n> This **replaces an existing intent.md**; the Files changed tab shows exactly what "
+                    "changes. " + (f"Merging regenerates {regen} through new PRs. " if regen else "")
+                    + "Close this PR to keep the current intent.\n")
     body_text = "\n".join(body) + "\n---\n" + Path(own).read_text(encoding="utf-8")[:60000]
 
     existing = sh("gh", "pr", "list", "--head", branch, "--state", "open", "--json", "url", "--jq", ".[0].url")

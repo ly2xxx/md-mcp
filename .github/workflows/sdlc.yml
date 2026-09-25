@@ -1,8 +1,9 @@
 name: SDLC Pipeline
 
-# intent.md -> spec.md -> plan.md -> code, one pull request per stage.
+# idea -> intent.md -> spec.md -> plan.md -> code, one pull request per stage.
 # Merging a stage's PR is the human approval, and the merge (a push of that
-# artifact to main) starts the next stage. See sdlc/README.md.
+# artifact to main) starts the next stage. Start a feature from
+# Actions -> SDLC Pipeline -> Run workflow with a one-line idea. See sdlc/README.md.
 #
 # One-time setup (Settings -> Secrets and variables -> Actions):
 #   OLLAMA_API_KEY      (secret)   - already used by the other workflows
@@ -22,13 +23,16 @@ on:
       - "sdlc/features/*/plan.md"
   workflow_dispatch:
     inputs:
+      idea:
+        description: "Idea (one line). Drafts intent.md for review. With a feature below, revises that feature's intent."
+        required: false
       feature:
-        description: "Feature folder under sdlc/features (e.g. 001-word-count)"
-        required: true
+        description: "Feature folder under sdlc/features. Leave empty with an idea to start a new one."
+        required: false
       stage:
-        description: "Stage to run"
+        description: "Stage to run. 'next' runs intent when there is an idea, otherwise the first missing stage."
         type: choice
-        options: [next, spec, plan, build]
+        options: [next, intent, spec, plan, build]
         default: next
 
 env:
@@ -62,6 +66,7 @@ jobs:
         uses: ./.github/actions/sdlc-stage
         with:
           mode: generate
+          idea: ${{ inputs.idea }}
           feature: ${{ inputs.feature }}
           stage: ${{ inputs.stage || 'next' }}
           model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
