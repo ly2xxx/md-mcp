@@ -12,6 +12,7 @@ copies files.
 
 Standard library only, so the runner needs nothing but python3, git and gh.
 """
+import http.client
 import json
 import os
 import re
@@ -122,7 +123,7 @@ def chat(model, prompt, want_json=False):
             body = e.read().decode(errors="replace")[:500]
             if attempt == 2 or e.code < 500:
                 fail(f"Ollama returned HTTP {e.code}: {body}")
-        except (urllib.error.URLError, TimeoutError) as e:
+        except (urllib.error.URLError, TimeoutError, http.client.HTTPException) as e:
             if attempt == 2:
                 fail(f"Ollama request failed: {e}")
     # Reasoning models can put their thinking inline; it is not part of the answer.
