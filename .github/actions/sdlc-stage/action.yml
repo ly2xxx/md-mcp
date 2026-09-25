@@ -1,0 +1,136 @@
+name: SDLC Stage
+description: Run one stage of the intent -> spec -> plan -> build pipeline with Ollama Cloud, or open the pull request for it.
+author: ly2xxx
+
+# One action, two modes, meant for two jobs:
+#   mode: generate  - read-only job. Calls the model and, for the build stage,
+#                     writes the model's files and runs the tests. Uploads the
+#                     result as a workflow artifact.
+#   mode: propose   - write job. Downloads that artifact, re-checks every path,
+#                     commits it to sdlc/<feature>/<stage> and opens a PR.
+# Model-written code only ever runs in the job without a write token.
+
+inputs:
+  mode:
+    description: generate or propose.
+    required: true
+  feature:
+    description: Folder under features-dir. Empty means the one changed by the push.
+    required: false
+    default: ""
+  stage:
+    description: spec, plan, build, or next (the first artifact the feature is missing).
+    required: false
+    default: next
+  features-dir:
+    description: Where feature folders live.
+    required: false
+    default: sdlc/features
+  model:
+    description: Ollama Cloud model for the spec and plan stages.
+    required: false
+    default: deepseek-v4-flash:cloud
+  build-model:
+    description: Ollama Cloud model for the build stage. Keep it different from the reviewer's model.
+    required: false
+    default: qwen3.5:cloud
+  ollama-api-key:
+    description: Ollama Cloud API key. Without it, generate skips cleanly.
+    required: false
+    default: ""
+  setup-command:
+    description: Build stage only. Installs the project before the tests run.
+    required: false
+    default: ""
+  test-command:
+    description: Build stage only. Its exit code is the gate.
+    required: false
+    default: ""
+  max-attempts:
+    description: Build stage only. Model attempts before giving up.
+    required: false
+    default: "2"
+  max-context-chars:
+    description: Budget for repository files included in a prompt.
+    required: false
+    default: "60000"
+  github-token:
+    description: Propose only. Token that pushes the branch and opens the PR.
+    required: false
+    default: ""
+
+outputs:
+  feature:
+    description: The feature that ran (generate).
+    value: ${{ steps.generate.outputs.feature }}
+  stage:
+    description: The stage that ran, or empty when there was nothing to do (generate).
+    value: ${{ steps.generate.outputs.stage }}
+  gate:
+    description: passed or failed for build, n/a otherwise (generate).
+    value: ${{ steps.generate.outputs.gate }}
+  pr:
+    description: URL of the pull request (propose).
+    value: ${{ steps.propose.outputs.pr }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check the mode
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+      run: |
+        case "$MODE" in generate|propose) ;; *) echo "::error::mode must be generate or propose"; exit 1 ;; esac
+
+    - name: Generate
+      id: generate
+      if: inputs.mode == 'generate'
+      shell: bash
+      env:
+        SDLC_OUT: ${{ runner.temp }}/sdlc-out
+        SDLC_FEATURE: ${{ inputs.feature }}
+        SDLC_STAGE: ${{ inputs.stage }}
+        FEATURES_DIR: ${{ inputs.features-dir }}
+        OLLAMA_MODEL: ${{ inputs.model }}
+        OLLAMA_BUILD_MODEL: ${{ inputs.build-model }}
+        OLLAMA_API_KEY: ${{ inputs.ollama-api-key }}
+        SETUP_COMMAND: ${{ inputs.setup-command }}
+        TEST_COMMAND: ${{ inputs.test-command }}
+        MAX_ATTEMPTS: ${{ inputs.max-attempts }}
+        MAX_CONTEXT_CHARS: ${{ inputs.max-context-chars }}
+        PUSH_BEFORE: ${{ github.event.before }}
+        PUSH_AFTER: ${{ github.sha }}
+      run: |
+        if [ -z "$OLLAMA_API_KEY" ]; then
+          echo "::warning::No Ollama API key - skipping."
+          echo "stage=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        python3 "$GITHUB_ACTION_PATH/sdlc_stage.py" generate
+
+    - name: Upload the stage result
+      if: inputs.mode == 'generate' && steps.generate.outputs.stage != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: sdlc-stage
+        path: ${{ runner.temp }}/sdlc-out
+        retention-days: 7
+
+    - name: Download the stage result
+      if: inputs.mode == 'propose'
+      uses: actions/download-artifact@v4
+      with:
+        name: sdlc-stage
+        path: ${{ runner.temp }}/sdlc-out
+
+    - name: Propose
+      id: propose
+      if: inputs.mode == 'propose'
+      shell: bash
+      env:
+        SDLC_OUT: ${{ runner.temp }}/sdlc-out
+        FEATURES_DIR: ${{ inputs.features-dir }}
+        BASE_BRANCH: ${{ github.ref_name }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: python3 "$GITHUB_ACTION_PATH/sdlc_stage.py" propose

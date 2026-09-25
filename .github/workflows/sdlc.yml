@@ -1,0 +1,91 @@
+name: SDLC Pipeline
+
+# intent.md -> spec.md -> plan.md -> code, one pull request per stage.
+# Merging a stage's PR is the human approval, and the merge (a push of that
+# artifact to main) starts the next stage. See sdlc/README.md.
+#
+# One-time setup (Settings -> Secrets and variables -> Actions):
+#   OLLAMA_API_KEY      (secret)   - already used by the other workflows
+#   SDLC_PR_TOKEN       (secret)   - optional; fine-grained PAT (contents + pull requests: write).
+#                                    Without it PRs are opened with GITHUB_TOKEN, which needs
+#                                    Settings -> Actions -> General -> "Allow GitHub Actions to
+#                                    create and approve pull requests", and CI does not run on them.
+#   OLLAMA_MODEL        (variable) - optional; spec and plan model
+#   OLLAMA_BUILD_MODEL  (variable) - optional; build model
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sdlc/features/*/intent.md"
+      - "sdlc/features/*/spec.md"
+      - "sdlc/features/*/plan.md"
+  workflow_dispatch:
+    inputs:
+      feature:
+        description: "Feature folder under sdlc/features (e.g. 001-word-count)"
+        required: true
+      stage:
+        description: "Stage to run"
+        type: choice
+        options: [next, spec, plan, build]
+        default: next
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: sdlc-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Generate the stage artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read        # this job runs model-written code, so it can't write anything
+    outputs:
+      stage: ${{ steps.stage.outputs.stage }}
+      feature: ${{ steps.stage.outputs.feature }}
+      gate: ${{ steps.stage.outputs.gate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Run the stage
+        id: stage
+        uses: ./.github/actions/sdlc-stage
+        with:
+          mode: generate
+          feature: ${{ inputs.feature }}
+          stage: ${{ inputs.stage || 'next' }}
+          model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
+          build-model: ${{ vars.OLLAMA_BUILD_MODEL || 'qwen3.5:cloud' }}
+          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
+          setup-command: uv venv --python 3.12 && uv pip install -e . pytest
+          test-command: .venv/bin/python -m pytest -q --ignore=sample-client
+
+  propose:
+    name: Open the stage pull request
+    needs: generate
+    if: needs.generate.outputs.stage != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SDLC_PR_TOKEN || github.token }}
+
+      - name: Open the pull request
+        uses: ./.github/actions/sdlc-stage
+        with:
+          mode: propose
+          github-token: ${{ secrets.SDLC_PR_TOKEN || github.token }}
