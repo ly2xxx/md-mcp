@@ -13,6 +13,7 @@ name: SDLC Pipeline
 #                                    create and approve pull requests", and CI does not run on them.
 #   OLLAMA_MODEL        (variable) - optional; spec and plan model
 #   OLLAMA_BUILD_MODEL  (variable) - optional; build model
+#   OLLAMA_THINK        (variable) - optional; true/false/low/medium/high for reasoning models
 
 on:
   push:
@@ -70,7 +71,8 @@ jobs:
           feature: ${{ inputs.feature }}
           stage: ${{ inputs.stage || 'next' }}
           model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
-          build-model: ${{ vars.OLLAMA_BUILD_MODEL || 'qwen3.5:cloud' }}
+          build-model: ${{ vars.OLLAMA_BUILD_MODEL || 'glm-5.3:cloud' }}
+          think: ${{ vars.OLLAMA_THINK }}
           ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
           setup-command: uv venv --python 3.12 && uv pip install -e . pytest
           test-command: .venv/bin/python -m pytest -q --ignore=sample-client

@@ -37,7 +37,15 @@ inputs:
   build-model:
     description: Ollama Cloud model for the build stage. Keep it different from the reviewer's model.
     required: false
-    default: qwen3.5:cloud
+    default: glm-5.3:cloud
+  think:
+    description: Thinking for reasoning models - true, false, low, medium or high. Empty leaves the model's default.
+    required: false
+    default: ""
+  timeout-seconds:
+    description: Longest one model answer may take, streamed.
+    required: false
+    default: "1200"
   ollama-api-key:
     description: Ollama Cloud API key. Without it, generate skips cleanly.
     required: false
@@ -100,6 +108,9 @@ runs:
         OLLAMA_MODEL: ${{ inputs.model }}
         OLLAMA_BUILD_MODEL: ${{ inputs.build-model }}
         OLLAMA_API_KEY: ${{ inputs.ollama-api-key }}
+        OLLAMA_THINK: ${{ inputs.think }}
+        OLLAMA_TIMEOUT: ${{ inputs.timeout-seconds }}
+        PYTHONUNBUFFERED: "1"
         SETUP_COMMAND: ${{ inputs.setup-command }}
         TEST_COMMAND: ${{ inputs.test-command }}
         MAX_ATTEMPTS: ${{ inputs.max-attempts }}

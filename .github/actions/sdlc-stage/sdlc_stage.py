@@ -12,12 +12,14 @@ copies files.
 
 Standard library only, so the runner needs nothing but python3, git and gh.
 """
+import http.client
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -103,32 +105,68 @@ def path_problem(path, existing, allowed=None, own=()):
 
 # ---------------------------------------------------------------- model call
 
+def _stream(req, model, deadline):
+    """Read one streamed /api/chat reply. Streaming keeps bytes flowing while a
+    model thinks, so no proxy drops the connection as idle, and it lets the log
+    show progress instead of minutes of silence."""
+    content, thinking, last_note = [], 0, time.monotonic()
+    # The timeout is per socket read: the longest silence tolerated between chunks.
+    with urllib.request.urlopen(req, timeout=int(env("OLLAMA_IDLE_TIMEOUT", "300"))) as resp:
+        for line in resp:
+            if not line.strip():
+                continue
+            chunk = json.loads(line)
+            if chunk.get("error"):
+                raise RuntimeError(chunk["error"])
+            message = chunk.get("message", {})
+            content.append(message.get("content", ""))
+            thinking += len(message.get("thinking", ""))
+            now = time.monotonic()
+            if now > deadline:
+                raise TimeoutError(f"no complete answer within {env('OLLAMA_TIMEOUT', '1200')}s")
+            if now - last_note > 30:
+                print(f"  {model}: {thinking} thinking and {sum(map(len, content))} answer characters so far",
+                      flush=True)
+                last_note = now
+            if chunk.get("done"):
+                return "".join(content)
+    raise http.client.IncompleteRead(b"", None)
+
+
 def chat(model, prompt, want_json=False):
-    payload = {"model": model, "stream": False,
+    payload = {"model": model, "stream": True,
                "messages": [{"role": "user", "content": prompt}]}
     if want_json:
         payload["format"] = "json"
+    think = env("OLLAMA_THINK").lower()
+    if think:
+        # true/false, or low/medium/high for models that take a level.
+        payload["think"] = {"true": True, "false": False}.get(think, think)
     req = urllib.request.Request(
         env("OLLAMA_HOST", "https://ollama.com").rstrip("/") + "/api/chat",
         data=json.dumps(payload).encode(),
         headers={"Authorization": "Bearer " + env("OLLAMA_API_KEY"),
                  "Content-Type": "application/json"})
+    deadline = time.monotonic() + int(env("OLLAMA_TIMEOUT", "1200"))
+    print(f"Calling {model}" + (f" (think={think})" if think else ""), flush=True)
     for attempt in (1, 2):
         try:
-            with urllib.request.urlopen(req, timeout=600) as resp:
-                content = json.load(resp).get("message", {}).get("content", "")
+            content = _stream(req, model, deadline)
             break
         except urllib.error.HTTPError as e:
             body = e.read().decode(errors="replace")[:500]
             if attempt == 2 or e.code < 500:
-                fail(f"Ollama returned HTTP {e.code}: {body}")
-        except (urllib.error.URLError, TimeoutError) as e:
-            if attempt == 2:
-                fail(f"Ollama request failed: {e}")
-    # Reasoning models can put their thinking inline; it is not part of the answer.
+                fail(f"Ollama returned HTTP {e.code} for {model}: {body}")
+        except TimeoutError as e:
+            fail(f"{model}: {e}. Try a faster model or OLLAMA_THINK=false.")
+        except (urllib.error.URLError, OSError, http.client.HTTPException, RuntimeError, ValueError) as e:
+            if attempt == 2 or time.monotonic() > deadline:
+                fail(f"Ollama request to {model} failed: {e}")
+        print(f"::warning::Ollama request to {model} failed; retrying once.", flush=True)
+    # Some models put their reasoning inline instead of in the thinking field.
     content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
     if not content:
-        fail("Ollama returned no content")
+        fail(f"{model} returned no answer")
     return content
 
 
@@ -307,7 +345,7 @@ def run_tests(command):
 
 
 def run_build(feature_path, files, budget):
-    model = env("OLLAMA_BUILD_MODEL", "qwen3.5:cloud")
+    model = env("OLLAMA_BUILD_MODEL", "glm-5.3:cloud")
     test_command = env("TEST_COMMAND")
     if not test_command:
         fail("The build stage needs a test-command.")
@@ -430,7 +468,7 @@ def generate():
 
     files = tracked_files()
     budget = int(env("MAX_CONTEXT_CHARS", "60000"))
-    print(f"Running the {stage} stage for {feature}")
+    print(f"Running the {stage} stage for {feature}", flush=True)
     revision = stage == "intent" and (feature_path / "intent.md").exists()
     downstream = [ARTIFACT[s] for s in STAGES[1:] if (feature_path / ARTIFACT[s]).exists()]
     if revision:
