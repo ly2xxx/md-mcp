@@ -1,97 +1,115 @@
 # AI-native SDLC pipeline (proof of concept)
 
-Each stage of the lifecycle is a GitHub Actions run that reads the previous
-stage's Markdown artifact and writes the next one, using Ollama Cloud. People
-approve by merging, never by reading every line the model wrote.
+One GitHub Actions run takes a feature from a one-line idea to a pull request.
+Ollama Cloud writes the design documents; a person approves each one, builds
+the code phase by phase, and the run checks the build against the plan before
+it opens the only pull request.
 
 ```text
 Run workflow: one-line idea
-  └─▶ intent stage ──PR──▶ you review, edit, merge
-                                  │
-      spec stage   ◀──────────────┘ ──PR──▶ you review, edit, merge
-                                                   │
-      plan stage   ◀───────────────────────────────┘ ──PR──▶ you review, edit, merge
-                                                                    │
-      build stage  ◀────────────────────────────────────────────────┘
-        writes code, runs the tests (the gate) ──PR──▶ you review, merge;
-                                  CI, BDD eval and the delta summary take over
+  │
+  ├─ 1 · Write intent.md   ─▶ ✋ Review intent.md   (read, edit on the branch, approve)
+  ├─ 2 · Write spec.md     ─▶ ✋ Review spec.md
+  ├─ 3 · Write plan.md     ─▶ ✋ Review plan.md      phases, each with targets, frozen
+  │                                                  files, a Definition of done and
+  │                                                  Verify commands
+  ├─ 4 · ✋ Build it, then approve                   you build each phase locally
+  │                                                  (Claude Code + sdlc-build skill)
+  ├─ 5 · Verify the build   scope, frozen files, every phase's Verify, the test suite
+  └─ 6 · Open the pull request                       a draft if verification failed
 ```
 
-| Stage | Reads | Writes | Who approves |
-| :-- | :-- | :-- | :-- |
-| Intent | your one-line idea | `intent.md` | you, by merging the intent PR |
-| Design | intent | `spec.md` | you, by merging the spec PR |
-| Plan | intent, spec, the files they name | `plan.md` with a `## Files` list | you, by merging the plan PR |
-| Build | intent, spec, plan, the listed files | code, new tests, `build-report.md` | you, by merging the build PR |
-| Test | the build | pass/fail | the test command's exit code, not the model |
-| Review | the diff | a PR comment | `commit-delta-summary.yml`, a different model from the builder |
+Everything lands on one branch, `feature/<feature>`, in
+`sdlc/features/<feature>/`. The ✋ jobs wait on a GitHub environment with a
+required reviewer, so the run pauses there until you approve. Waiting jobs use
+no runner minutes, and a pause can last up to 30 days.
 
-## Start a feature
+## Setup (once)
 
-**Actions → SDLC Pipeline → Run workflow**, type a one-line **idea**, leave the
-rest empty, and run it. The intent stage creates the next numbered folder (for
-example `002-extract-gfm-tables-as-lists-of`) and opens a PR with a drafted
-`intent.md`. Edit it on the branch if needed and merge; that starts **spec**.
-Each merge after that starts the next stage: spec → plan → build.
+1. **Settings → Environments → New environment** `sdlc-review`. Tick
+   **Required reviewers** and add yourself. (Leave "Prevent self-review" off.)
+2. **Settings → Actions → General → Allow GitHub Actions to create and approve
+   pull requests**, or add an `SDLC_PR_TOKEN` secret (a fine-grained token with
+   contents and pull requests write). With the token, CI also runs on the PR.
+3. `OLLAMA_API_KEY` is already a secret. Optional variables: `OLLAMA_MODEL`
+   (default `deepseek-v4-flash:cloud`) and `OLLAMA_THINK` (`false` to stop a
+   reasoning model thinking for minutes).
 
-The build PR carries the code, new tests and `build-report.md`. It is a draft
-titled `[gate failed]` if the tests never passed.
+## Run a feature
 
-You can still write `intent.md` yourself: push a new folder with one to `main`.
+1. **Actions → SDLC Pipeline → Run workflow.** Type the idea, leave the rest
+   empty. The run is named `SDLC · <idea> · from auto`.
+2. **At each ✋ Review job**, open the run. The job before it shows the new
+   document in its summary with **View** and **Edit on the branch** links. Edit
+   it there if it needs changing, then **Review deployments → Approve**. The next
+   stage reads the branch after you approve, so it sees your edits. **Reject**
+   stops the run.
+3. **At "4 · ✋ Build it, then approve"**, build the plan locally:
 
-## Change a feature
+   ```bash
+   git fetch origin && git switch feature/<feature>
+   claude    # then: "use sdlc-build to build phase 1 of <feature>"
+   ```
 
-Run the workflow with an **idea** and the **feature** folder, e.g. "also accept
-tables without a header row" and `002-extract-gfm-tables-as-lists-of`. The run
-warns that the feature already has an intent, and the PR is titled
-`intent (revision)`: its Files changed tab shows exactly what changes, and it
-lists the artifacts that merging will regenerate. Close it to keep the current
-intent. Merge it and spec, plan and build run again, each as a new PR.
+   The `sdlc-build` skill implements one phase, keeps to its targets, runs its
+   Verify commands and this check, logs the phase in `build-log.md`, commits and
+   stops for your review:
 
-A merge starts the stage after the earliest artifact it changed, so this works
-at any level: edit `spec.md` on `main` and plan and build re-run.
+   ```bash
+   python .github/actions/sdlc-stage/sdlc_stage.py verify --feature <feature> --phase 1 \
+     --test-command "uv run pytest -q --ignore=sample-client"
+   ```
 
-## Run one stage by hand
+   Push each phase. When all are done, approve the Build job.
+4. **Verify** checks the whole branch against the plan. **Open the pull request**
+   then opens one PR with the phase checklist and the verification report. If a
+   check failed the PR is a draft: push the fix and **Re-run failed jobs**.
 
-Run the workflow with the **feature** folder and a **stage**. `next` runs the
-first stage whose artifact is missing.
+## Other ways to start
+
+| Run workflow with | Does |
+| :-- | :-- |
+| idea | a new feature, numbered after the highest existing one |
+| idea + feature | revises that feature's intent (with a warning), then spec and plan again |
+| feature | the first missing document, or straight to the Build gate if all three exist |
+| feature + start | that stage onwards: `spec`, `plan`, or `build` to verify an existing build |
+
+## What the plan must contain
+
+`plan.md` uses the markers from `deterministic-coding/phase_check.py`:
+
+```markdown
+## Phase 1: word count on MarkdownFile
+<!-- phase: 1 -->
+<!-- targets: md_mcp/scanner.py, tests/test_word_count.py -->
+<!-- frozen: tests/test_read_file.py -->
+**Definition of done:**
+- [ ] `tests/test_word_count.py::test_frontmatter_excluded`: spec behaviour 1
+**Verify:**
+    uv run pytest tests/test_word_count.py -v   (in a bash fence)
+```
+
+It also needs a **Coverage** table with one row per "Done when" item in
+`intent.md`, so a plan can't quietly drop part of the intent: an item it can't
+deliver is marked `NOT COVERED` for you to see at the review. If the model
+leaves out a marker, a checklist, a Verify block or a coverage row, the stage
+asks it once more, then flags what is still missing in the run summary.
 
 ## Guard rails
 
-- **The job that runs model-written code can't write to the repo.** `generate`
-  has a read-only token and runs the tests with a scrubbed environment. A
-  separate `propose` job holds the write token, runs nothing from the model,
-  re-checks every path and opens the PR.
-- **The build may only touch files in the plan's `## Files` list**, which you
-  approved. Nothing under `.github/` or `.git/`, and no path outside the repo.
-- **Existing tests are frozen.** The build may add test files, not edit old ones,
-  so it can't make the suite pass by weakening it. The exception is a test this
-  feature's own earlier build wrote (listed in its `build-report.md`), so a
-  revised feature can update its own tests.
-- **"The tests passed" is an exit code.** An empty test run (pytest exit 5)
-  counts as a failure.
-- Each artifact records the stage, model and commit it was generated from.
+- **No model-written code runs in Actions.** The model writes documents; people
+  approve them and build the code.
+- **Scope is mechanical.** Verify fails if the branch changes a file outside
+  every phase's `targets`, or any `frozen` file.
+- **"Tests pass" is an exit code**, from each phase's Verify block and the whole
+  suite, never anyone's opinion.
+- **Permissions per job.** Document jobs can push to the feature branch only;
+  Verify is read-only; only the last job can open a pull request.
 
-## Setup
+## Known limits
 
-`OLLAMA_API_KEY` is already a repository secret. Then either:
-
-- enable **Settings → Actions → General → Allow GitHub Actions to create and
-  approve pull requests**, or
-- add a `SDLC_PR_TOKEN` secret: a fine-grained token with contents and pull
-  requests write on this repo. PRs opened with it also trigger CI; PRs opened
-  with the default token don't.
-
-Optional variables: `OLLAMA_MODEL` (spec and plan) and `OLLAMA_BUILD_MODEL`.
-
-## Known limits of the proof of concept
-
-- One feature per push. Two ideas started before either intent PR is merged
-  get the same number (their names still differ).
-- The Run workflow form has single-line inputs only, so the idea is one line
-  and the model drafts the rest. Edit the intent PR for anything longer.
-- The build writes whole files, so it suits small modules better than large ones.
-- Model-written test code can still read the runner's Ollama key from process
-  memory. Use a key with a spending limit.
-- The action lives here for now. It is written to move unchanged to
-  `ly2xxx/.github/actions/sdlc-stage`, next to `commit-delta-summary`.
+- Environments with required reviewers need a public repository or a paid plan.
+- An approval comment doesn't reach the next stage. To steer a stage, edit the
+  document on the branch before approving.
+- The Verify commands come from the approved plan and run on the runner, so
+  read them at the plan review like any other code.

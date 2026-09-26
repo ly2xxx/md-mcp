@@ -1,143 +1,135 @@
 name: SDLC Stage
-description: Run one stage of the idea -> intent -> spec -> plan -> build pipeline with Ollama Cloud, or open the pull request for it.
+description: One step of the idea -> intent -> spec -> plan pipeline on Ollama Cloud, or the checks and pull request after a person builds the plan.
 author: ly2xxx
 
-# One action, two modes, meant for two jobs:
-#   mode: generate  - read-only job. Calls the model and, for the build stage,
-#                     writes the model's files and runs the tests. Uploads the
-#                     result as a workflow artifact.
-#   mode: propose   - write job. Downloads that artifact, re-checks every path,
-#                     commits it to sdlc/<feature>/<stage> and opens a PR.
-# Model-written code only ever runs in the job without a write token.
+# Commands (see sdlc_stage.py):
+#   resolve  pick the feature folder, its feature/<name> branch and the first stage
+#   stage    write intent.md, spec.md or plan.md and push it to the feature branch
+#   verify   check the built branch against plan.md's phases (scope, frozen files,
+#            each phase's Verify commands, the whole test suite)
+#   pr       open or update the pull request, as a draft if verification failed
+# The workflow pauses for a person between stages with a GitHub environment that
+# has required reviewers; the action itself never waits.
 
 inputs:
-  mode:
-    description: generate or propose.
+  command:
+    description: resolve, stage, verify or pr.
     required: true
+  stage:
+    description: For command stage - intent, spec or plan.
+    required: false
+    default: ""
   idea:
     description: One line. Drafts intent.md for a new feature, or revises the named feature's intent.
     required: false
     default: ""
   feature:
-    description: Folder under features-dir. Empty means a new folder (with an idea) or the one the push changed.
+    description: Folder under features-dir.
     required: false
     default: ""
-  stage:
-    description: intent, spec, plan, build, or next (the first artifact the feature is missing).
+  start:
+    description: For resolve - auto, intent, spec, plan or build.
     required: false
-    default: next
+    default: auto
+  base:
+    description: For verify and pr - the branch the feature goes into.
+    required: false
+    default: ""
   features-dir:
     description: Where feature folders live.
     required: false
     default: sdlc/features
   model:
-    description: Ollama Cloud model for the spec and plan stages.
+    description: Ollama Cloud model for intent, spec and plan.
     required: false
     default: deepseek-v4-flash:cloud
-  build-model:
-    description: Ollama Cloud model for the build stage. Keep it different from the reviewer's model.
-    required: false
-    default: qwen3.5:cloud
   ollama-api-key:
-    description: Ollama Cloud API key. Without it, generate skips cleanly.
+    description: Ollama Cloud API key (command stage).
     required: false
     default: ""
-  setup-command:
-    description: Build stage only. Installs the project before the tests run.
+  think:
+    description: Thinking for reasoning models - true, false, low, medium or high. Empty leaves the model's default.
     required: false
     default: ""
-  test-command:
-    description: Build stage only. Its exit code is the gate.
+  timeout-seconds:
+    description: Longest one model answer may take, streamed.
     required: false
-    default: ""
-  max-attempts:
-    description: Build stage only. Model attempts before giving up.
-    required: false
-    default: "2"
+    default: "1200"
   max-context-chars:
     description: Budget for repository files included in a prompt.
     required: false
     default: "60000"
+  test-command:
+    description: For verify - the whole test suite.
+    required: false
+    default: ""
+  report:
+    description: For verify and pr - path of the verification report.
+    required: false
+    default: ""
   github-token:
-    description: Propose only. Token that pushes the branch and opens the PR.
+    description: For pr - token that opens the pull request.
     required: false
     default: ""
 
 outputs:
   feature:
-    description: The feature that ran (generate).
-    value: ${{ steps.generate.outputs.feature }}
-  stage:
-    description: The stage that ran, or empty when there was nothing to do (generate).
-    value: ${{ steps.generate.outputs.stage }}
-  gate:
-    description: passed or failed for build, n/a otherwise (generate).
-    value: ${{ steps.generate.outputs.gate }}
+    description: resolve - the feature folder.
+    value: ${{ steps.run.outputs.feature }}
+  branch:
+    description: resolve - the feature branch.
+    value: ${{ steps.run.outputs.branch }}
+  start:
+    description: resolve - the first stage that runs.
+    value: ${{ steps.run.outputs.start }}
+  intent:
+    description: resolve - whether the intent stage runs.
+    value: ${{ steps.run.outputs.intent }}
+  spec:
+    description: resolve - whether the spec stage runs.
+    value: ${{ steps.run.outputs.spec }}
+  plan:
+    description: resolve - whether the plan stage runs.
+    value: ${{ steps.run.outputs.plan }}
+  passed:
+    description: verify - true when every check passed.
+    value: ${{ steps.run.outputs.passed }}
   pr:
-    description: URL of the pull request (propose).
-    value: ${{ steps.propose.outputs.pr }}
+    description: pr - URL of the pull request.
+    value: ${{ steps.run.outputs.pr }}
 
 runs:
   using: composite
   steps:
-    - name: Check the mode
+    - name: Run
+      id: run
       shell: bash
       env:
-        MODE: ${{ inputs.mode }}
-      run: |
-        case "$MODE" in generate|propose) ;; *) echo "::error::mode must be generate or propose"; exit 1 ;; esac
-
-    - name: Generate
-      id: generate
-      if: inputs.mode == 'generate'
-      shell: bash
-      env:
-        SDLC_OUT: ${{ runner.temp }}/sdlc-out
+        COMMAND: ${{ inputs.command }}
+        STAGE: ${{ inputs.stage }}
         SDLC_IDEA: ${{ inputs.idea }}
         SDLC_FEATURE: ${{ inputs.feature }}
-        SDLC_STAGE: ${{ inputs.stage }}
+        SDLC_START: ${{ inputs.start }}
+        BASE_REF: ${{ inputs.base }}
         FEATURES_DIR: ${{ inputs.features-dir }}
         OLLAMA_MODEL: ${{ inputs.model }}
-        OLLAMA_BUILD_MODEL: ${{ inputs.build-model }}
         OLLAMA_API_KEY: ${{ inputs.ollama-api-key }}
-        SETUP_COMMAND: ${{ inputs.setup-command }}
-        TEST_COMMAND: ${{ inputs.test-command }}
-        MAX_ATTEMPTS: ${{ inputs.max-attempts }}
+        OLLAMA_THINK: ${{ inputs.think }}
+        OLLAMA_TIMEOUT: ${{ inputs.timeout-seconds }}
         MAX_CONTEXT_CHARS: ${{ inputs.max-context-chars }}
-        EVENT_NAME: ${{ github.event_name }}
-        ACTOR: ${{ github.actor }}
-        PUSH_BEFORE: ${{ github.event.before }}
-        PUSH_AFTER: ${{ github.sha }}
-      run: |
-        if [ -z "$OLLAMA_API_KEY" ]; then
-          echo "::warning::No Ollama API key - skipping."
-          echo "stage=" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-        python3 "$GITHUB_ACTION_PATH/sdlc_stage.py" generate
-
-    - name: Upload the stage result
-      if: inputs.mode == 'generate' && steps.generate.outputs.stage != ''
-      uses: actions/upload-artifact@v4
-      with:
-        name: sdlc-stage
-        path: ${{ runner.temp }}/sdlc-out
-        retention-days: 7
-
-    - name: Download the stage result
-      if: inputs.mode == 'propose'
-      uses: actions/download-artifact@v4
-      with:
-        name: sdlc-stage
-        path: ${{ runner.temp }}/sdlc-out
-
-    - name: Propose
-      id: propose
-      if: inputs.mode == 'propose'
-      shell: bash
-      env:
-        SDLC_OUT: ${{ runner.temp }}/sdlc-out
-        FEATURES_DIR: ${{ inputs.features-dir }}
-        BASE_BRANCH: ${{ github.ref_name }}
+        TEST_COMMAND: ${{ inputs.test-command }}
+        REPORT: ${{ inputs.report }}
         GH_TOKEN: ${{ inputs.github-token }}
-      run: python3 "$GITHUB_ACTION_PATH/sdlc_stage.py" propose
+        ACTOR: ${{ github.actor }}
+        PYTHONUNBUFFERED: "1"
+      run: |
+        script="$GITHUB_ACTION_PATH/sdlc_stage.py"
+        case "$COMMAND" in
+          resolve) python3 "$script" resolve ;;
+          stage)
+            if [ -z "$OLLAMA_API_KEY" ]; then echo "::error::The stage command needs ollama-api-key."; exit 1; fi
+            python3 "$script" stage "$STAGE" ;;
+          verify) python3 "$script" verify ${REPORT:+--report "$REPORT"} ;;
+          pr) python3 "$script" pr ${REPORT:+--report "$REPORT"} ;;
+          *) echo "::error::command must be resolve, stage, verify or pr"; exit 1 ;;
+        esac

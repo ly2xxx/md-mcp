@@ -1,96 +1,216 @@
 name: SDLC Pipeline
 
-# idea -> intent.md -> spec.md -> plan.md -> code, one pull request per stage.
-# Merging a stage's PR is the human approval, and the merge (a push of that
-# artifact to main) starts the next stage. Start a feature from
-# Actions -> SDLC Pipeline -> Run workflow with a one-line idea. See sdlc/README.md.
+# One run per feature: idea -> intent.md -> spec.md -> plan.md, pausing for a
+# person after each, then waiting while a person builds the plan, then checking
+# the build and opening one pull request. See sdlc/README.md.
 #
-# One-time setup (Settings -> Secrets and variables -> Actions):
-#   OLLAMA_API_KEY      (secret)   - already used by the other workflows
-#   SDLC_PR_TOKEN       (secret)   - optional; fine-grained PAT (contents + pull requests: write).
-#                                    Without it PRs are opened with GITHUB_TOKEN, which needs
-#                                    Settings -> Actions -> General -> "Allow GitHub Actions to
-#                                    create and approve pull requests", and CI does not run on them.
-#   OLLAMA_MODEL        (variable) - optional; spec and plan model
-#   OLLAMA_BUILD_MODEL  (variable) - optional; build model
+# One-time setup:
+#   Settings -> Environments -> New environment "sdlc-review" -> Required reviewers:
+#     add yourself. Every "Review" job below waits there until a reviewer approves.
+#   Settings -> Actions -> General -> "Allow GitHub Actions to create and approve
+#     pull requests" (or an SDLC_PR_TOKEN secret, which also lets CI run on the PR).
+#   Secrets and variables -> Actions:
+#     OLLAMA_API_KEY (secret), OLLAMA_MODEL and OLLAMA_THINK (optional variables).
+
+run-name: "SDLC · ${{ inputs.feature || inputs.idea }} · from ${{ inputs.start }}"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "sdlc/features/*/intent.md"
-      - "sdlc/features/*/spec.md"
-      - "sdlc/features/*/plan.md"
   workflow_dispatch:
     inputs:
       idea:
-        description: "Idea (one line). Drafts intent.md for review. With a feature below, revises that feature's intent."
+        description: "Idea (one line). Starts a new feature, or revises the feature named below."
         required: false
       feature:
-        description: "Feature folder under sdlc/features. Leave empty with an idea to start a new one."
+        description: "Existing feature folder under sdlc/features. Leave empty for a new idea."
         required: false
-      stage:
-        description: "Stage to run. 'next' runs intent when there is an idea, otherwise the first missing stage."
+      start:
+        description: "Where to start. auto = intent with an idea, else the first missing artifact."
         type: choice
-        options: [next, intent, spec, plan, build]
-        default: next
+        options: [auto, intent, spec, plan, build]
+        default: auto
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
-concurrency:
-  group: sdlc-${{ github.ref }}
-  cancel-in-progress: false
+permissions: {}
 
 jobs:
-  generate:
-    name: Generate the stage artifact
+  resolve:
+    name: Resolve the feature
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     permissions:
-      contents: read        # this job runs model-written code, so it can't write anything
+      contents: read
     outputs:
-      stage: ${{ steps.stage.outputs.stage }}
-      feature: ${{ steps.stage.outputs.feature }}
-      gate: ${{ steps.stage.outputs.gate }}
+      feature: ${{ steps.r.outputs.feature }}
+      branch: ${{ steps.r.outputs.branch }}
+      intent: ${{ steps.r.outputs.intent }}
+      spec: ${{ steps.r.outputs.spec }}
+      plan: ${{ steps.r.outputs.plan }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
-
-      - uses: astral-sh/setup-uv@v5
-
-      - name: Run the stage
-        id: stage
+      - id: r
         uses: ./.github/actions/sdlc-stage
         with:
-          mode: generate
+          command: resolve
           idea: ${{ inputs.idea }}
           feature: ${{ inputs.feature }}
-          stage: ${{ inputs.stage || 'next' }}
-          model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
-          build-model: ${{ vars.OLLAMA_BUILD_MODEL || 'qwen3.5:cloud' }}
-          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
-          setup-command: uv venv --python 3.12 && uv pip install -e . pytest
-          test-command: .venv/bin/python -m pytest -q --ignore=sample-client
+          start: ${{ inputs.start }}
 
-  propose:
-    name: Open the stage pull request
-    needs: generate
-    if: needs.generate.outputs.stage != ''
+  # ------------------------------------------------------------------ intent
+  intent:
+    name: "1 · Write intent.md"
+    needs: resolve
+    if: needs.resolve.outputs.intent == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
+    permissions:
+      contents: write       # pushes the artifact to the feature branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/sdlc-stage
+        with:
+          command: stage
+          stage: intent
+          idea: ${{ inputs.idea }}
+          feature: ${{ needs.resolve.outputs.feature }}
+          model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
+          think: ${{ vars.OLLAMA_THINK }}
+          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
+
+  review-intent:
+    name: "✋ Review intent.md"
+    needs: [resolve, intent]
+    runs-on: ubuntu-latest
+    environment: sdlc-review
+    steps:
+      - run: echo "intent.md approved by ${{ github.actor }}. Continuing with spec."
+
+  # ------------------------------------------------------------------ spec
+  spec:
+    name: "2 · Write spec.md"
+    needs: [resolve, review-intent]
+    if: ${{ !cancelled() && !failure() && needs.resolve.outputs.spec == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/sdlc-stage
+        with:
+          command: stage
+          stage: spec
+          feature: ${{ needs.resolve.outputs.feature }}
+          model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
+          think: ${{ vars.OLLAMA_THINK }}
+          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
+
+  review-spec:
+    name: "✋ Review spec.md"
+    needs: [resolve, spec]
+    runs-on: ubuntu-latest
+    environment: sdlc-review
+    steps:
+      - run: echo "spec.md approved by ${{ github.actor }}. Continuing with plan."
+
+  # ------------------------------------------------------------------ plan
+  plan:
+    name: "3 · Write plan.md (phases)"
+    needs: [resolve, review-spec]
+    if: ${{ !cancelled() && !failure() && needs.resolve.outputs.plan == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/sdlc-stage
+        with:
+          command: stage
+          stage: plan
+          feature: ${{ needs.resolve.outputs.feature }}
+          model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
+          think: ${{ vars.OLLAMA_THINK }}
+          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
+
+  review-plan:
+    name: "✋ Review plan.md"
+    needs: [resolve, plan]
+    runs-on: ubuntu-latest
+    environment: sdlc-review
+    steps:
+      - run: echo "plan.md approved by ${{ github.actor }}. Build it phase by phase on ${{ needs.resolve.outputs.branch }}."
+
+  # ------------------------------------------------------------------ build (a person)
+  build:
+    name: "4 · ✋ Build it, then approve"
+    needs: [resolve, review-plan]
+    if: ${{ !cancelled() && !failure() }}
+    runs-on: ubuntu-latest
+    environment: sdlc-review
+    steps:
+      - run: echo "Build reported done by ${{ github.actor }}. Verifying ${{ needs.resolve.outputs.branch }}."
+
+  verify:
+    name: "5 · Verify the build"
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read        # runs the built code and the plan's commands; writes nothing
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v5
+      - name: Install the project
+        run: uv venv --python 3.12 && uv pip install -e . pytest
+      - uses: ./.github/actions/sdlc-stage
+        with:
+          command: verify
+          feature: ${{ needs.resolve.outputs.feature }}
+          base: ${{ github.ref_name }}
+          test-command: uv run pytest -q --ignore=sample-client
+          report: ${{ runner.temp }}/verify-report.md
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-report
+          path: ${{ runner.temp }}/verify-report.md
+          if-no-files-found: ignore
+
+  pr:
+    name: "6 · Open the pull request"
+    needs: [resolve, verify]
+    if: ${{ !cancelled() && (needs.verify.result == 'success' || needs.verify.result == 'failure') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.SDLC_PR_TOKEN || github.token }}
-
-      - name: Open the pull request
-        uses: ./.github/actions/sdlc-stage
+          ref: ${{ needs.resolve.outputs.branch }}
+      - uses: actions/download-artifact@v4
         with:
-          mode: propose
+          name: verify-report
+          path: ${{ runner.temp }}
+      - uses: ./.github/actions/sdlc-stage
+        env:
+          VERIFY_PASSED: ${{ needs.verify.result == 'success' }}
+        with:
+          command: pr
+          feature: ${{ needs.resolve.outputs.feature }}
+          base: ${{ github.ref_name }}
+          report: ${{ runner.temp }}/verify-report.md
           github-token: ${{ secrets.SDLC_PR_TOKEN || github.token }}
