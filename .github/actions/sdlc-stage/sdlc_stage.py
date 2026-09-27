@@ -459,8 +459,13 @@ def verify(args):
         changed, against = changed_since(ref, False), f"changes since `{base}`"
     changed = [p for p in changed if not p.startswith(str(folder) + "/")]
     targets = [t for p in phases for t in p["targets"]]
-    frozen = [f for p in phases for f in p["frozen"]]
-    frozen_hit = [p for p in changed if matches_any(p, frozen)]
+    if args.phase:
+        frozen = [f for p in phases for f in p["frozen"]]
+    else:
+        # In whole-feature verification, files targeted by any phase are intentional changes.
+        # Only files outside all phase targets can be considered frozen violations.
+        frozen = [f for p in phases for f in p["frozen"] if not matches_any(f, targets)]
+    frozen_hit = [p for p in changed if matches_any(p, frozen) and not matches_any(p, targets)]
     outside = [p for p in changed if not matches_any(p, targets) and p not in frozen_hit]
 
     rows, ok = [], True

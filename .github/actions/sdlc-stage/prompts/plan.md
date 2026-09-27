@@ -27,10 +27,10 @@ why under Open questions. Never quietly shrink the scope.
 **Goal:** one sentence a reviewer can check without reading code.
 
 **Changes:**
-- `path/to/file.py`: what changes and why.
+- `path/to/file.py`: concrete changes with exact function signatures, argument types, return structures/keys, imports, and exceptions to handle. Be specific enough that an automated coding agent can implement directly without needing exploratory shell probes.
 
 **Definition of done:**
-- [ ] `tests/test_new.py::test_name`: which spec behaviour it proves.
+- [ ] `tests/test_new.py::test_name`: which spec behaviour it proves, with the concrete test pattern, assertions, and teardown/cleanup fixtures (e.g. background threads, server instances, mock scopes).
 - [ ] Any other observable check: a CLI call, an MCP tool call, an HTTP endpoint and its expected output.
 
 **Verify:**
@@ -49,6 +49,13 @@ What could break, and which phase's checks would catch it.
 Anything unresolved, with the assumption made. Write "None" if there are none.
 
 Rules:
+- Self-driven automated builds: The plan will be implemented by automated AI
+  coding agents (such as Claude Code or Antigravity) that pause for manual user
+  approvals on terminal commands. To eliminate unnecessary "allow" prompts,
+  leave no ambiguity: provide exact function signatures, dictionary keys, return
+  structures, framework API usages, and test fixture teardowns directly in the
+  plan so the builder never needs to execute exploratory shell probes (e.g.
+  `python -c "import ..."`, environment inspects, or ad-hoc scripts).
 - Every phase has all three markers. `targets` lists every file the phase may
   create, modify, move or delete: for a move, list both the old and the new
   path. Globs are allowed; `*` does not cross `/`, `**` does.
@@ -58,7 +65,9 @@ Rules:
 - The Verify block holds commands that run from the repository root on a fresh
   checkout with the project installed, exit non-zero on failure, and need no
   network, secrets or running services unless the phase starts them itself.
-  Prefer `uv run pytest ...`. Never run the whole suite from inside a test.
+  Prefer `uv run pytest tests/test_new.py -v`. Never run the whole suite from
+  inside a test. The builder executes changes via file edits and runs only the
+  prescribed Verify command.
 - Order the phases so each one leaves the repository working and its tests
   passing.
 - Answer with the Markdown document only, with no preamble.

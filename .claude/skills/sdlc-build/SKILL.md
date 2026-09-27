@@ -48,4 +48,5 @@ that job, and the workflow verifies the branch and opens the pull request.
 
 Tell the developer to approve **"4 · ✋ Build it, then approve"** in the waiting
 workflow run (Review deployments). The run then checks the whole branch against
-the plan and opens the pull request, as a draft if anything failed.
+the plan, verifies the build, and pauses at **"6 · ✋ Open the pull request"** for
+final approval before opening the pull request.

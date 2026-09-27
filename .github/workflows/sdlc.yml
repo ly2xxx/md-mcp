@@ -190,10 +190,11 @@ jobs:
           if-no-files-found: ignore
 
   pr:
-    name: "6 · Open the pull request"
+    name: "6 · ✋ Open the pull request"
     needs: [resolve, verify]
-    if: ${{ !cancelled() && (needs.verify.result == 'success' || needs.verify.result == 'failure') }}
+    if: ${{ !cancelled() && needs.verify.result == 'success' }}
     runs-on: ubuntu-latest
+    environment: sdlc-review
     permissions:
       contents: read
       pull-requests: write

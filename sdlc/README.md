@@ -16,7 +16,7 @@ Run workflow: one-line idea
   ├─ 4 · ✋ Build it, then approve                   you build each phase locally
   │                                                  (Claude Code + sdlc-build skill)
   ├─ 5 · Verify the build   scope, frozen files, every phase's Verify, the test suite
-  └─ 6 · Open the pull request                       a draft if verification failed
+  └─ 6 · ✋ Open the pull request                    pause for review, then open the PR
 ```
 
 Everything lands on one branch, `feature/<feature>`, in
@@ -61,9 +61,9 @@ no runner minutes, and a pause can last up to 30 days.
    ```
 
    Push each phase. When all are done, approve the Build job.
-4. **Verify** checks the whole branch against the plan. **Open the pull request**
-   then opens one PR with the phase checklist and the verification report. If a
-   check failed the PR is a draft: push the fix and **Re-run failed jobs**.
+4. **Verify** checks the whole branch against the plan. **6 · ✋ Open the pull request**
+   runs only after verification passes, pausing on `sdlc-review` so you can inspect
+   the verification report before approving. Once approved, it opens the pull request.
 
 ## Other ways to start
 
