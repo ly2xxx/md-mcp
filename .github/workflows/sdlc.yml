@@ -51,7 +51,7 @@ jobs:
         with:
           fetch-depth: 0
       - id: r
-        uses: ./.github/actions/sdlc-stage
+        uses: ly2xxx/.github/actions/sdlc-stage@main
         with:
           command: resolve
           idea: ${{ inputs.idea }}
@@ -71,7 +71,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/sdlc-stage
+      - uses: ly2xxx/.github/actions/sdlc-stage@main
         with:
           command: stage
           stage: intent
@@ -102,7 +102,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/sdlc-stage
+      - uses: ly2xxx/.github/actions/sdlc-stage@main
         with:
           command: stage
           stage: spec
@@ -132,7 +132,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/sdlc-stage
+      - uses: ly2xxx/.github/actions/sdlc-stage@main
         with:
           command: stage
           stage: plan
@@ -175,7 +175,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - name: Install the project
         run: uv venv --python 3.12 && uv pip install -e . pytest
-      - uses: ./.github/actions/sdlc-stage
+      - uses: ly2xxx/.github/actions/sdlc-stage@main
         with:
           command: verify
           feature: ${{ needs.resolve.outputs.feature }}
@@ -206,7 +206,7 @@ jobs:
         with:
           name: verify-report
           path: ${{ runner.temp }}
-      - uses: ./.github/actions/sdlc-stage
+      - uses: ly2xxx/.github/actions/sdlc-stage@main
         env:
           VERIFY_PASSED: ${{ needs.verify.result == 'success' }}
         with:
