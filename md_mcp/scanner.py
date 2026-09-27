@@ -88,6 +88,10 @@ class MarkdownFile:
             "mimeType": "text/markdown"
         }
 
+    def get_size_bytes(self) -> int:
+        """Return this file's size in bytes, as reported by the filesystem."""
+        return self.path.stat().st_size
+
 
 # Extensions treated as markdown. Keep in sync with MarkdownFileWatcher
 # (md_mcp/server.py), which uses MARKDOWN_EXTENSIONS for its event filter.

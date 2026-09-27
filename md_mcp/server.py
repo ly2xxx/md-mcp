@@ -3,7 +3,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Any, Dict, List, Optional
 import time
 import sys
 from fastmcp import FastMCP
@@ -340,6 +340,31 @@ def create_markdown_server(folder_path: str, server_name: str = "markdown-docs")
             result += f"  [md://{server_name}/{path_str}]\n\n"
 
         return result
+
+    @mcp.tool()
+    def list_file_sizes() -> List[Dict[str, Any]]:
+        """List every markdown file in the served folder together with its size in bytes.
+
+        Returns:
+            One entry per markdown file discovered by the scanner, each a dict with:
+            - "path": relative path of the file, e.g. "notes/project.md"
+            - "size_bytes": size of the file in bytes, as reported by the filesystem
+            Entries are ordered by ascending "path"; the list is empty when the
+            folder contains no markdown files.
+        """
+        scanned_files = scanner.scan()
+        results: List[Dict[str, Any]] = []
+        for md_file in scanned_files:
+            try:
+                size = md_file.get_size_bytes()
+                results.append({
+                    "path": str(md_file.relative_path).replace('\\', '/'),
+                    "size_bytes": size,
+                })
+            except OSError:
+                continue
+        results.sort(key=lambda x: x["path"])
+        return results
 
     @mcp.tool()
     def search_markdown(query: str, max_results: int = 5, strategy: str = "keyword") -> str:
