@@ -1,114 +1,111 @@
-# AI-native SDLC pipeline (proof of concept)
+# AI-native SDLC pipeline
 
 One GitHub Actions run takes a feature from a one-line idea to a pull request.
-Ollama Cloud writes the design documents; a person approves each one, builds
-the code phase by phase, and the run checks the build against the plan before
-it opens the only pull request.
+Ollama Cloud writes the design, a builder writes the code, and deterministic
+checks decide whether it is done. The pipeline is the shared one in
+[`ly2xxx/.github`](https://github.com/ly2xxx/.github/tree/main/actions/sdlc-stage);
+this repository only calls it (`.github/workflows/sdlc.yml` and `sdlc-phase.yml`).
 
 ```text
-Run workflow: one-line idea
-  │
-  ├─ 1 · Write intent.md   ─▶ ✋ Review intent.md   (read, edit on the branch, approve)
-  ├─ 2 · Write spec.md     ─▶ ✋ Review spec.md
-  ├─ 3 · Write plan.md     ─▶ ✋ Review plan.md      phases, each with targets, frozen
-  │                                                  files, a Definition of done and
-  │                                                  Verify commands
-  ├─ 4 · ✋ Build it, then approve                   you build each phase locally
-  │                                                  (Claude Code + sdlc-build skill)
-  ├─ 5 · Verify the build   scope, frozen files, every phase's Verify, the test suite
-  └─ 6 · ✋ Open the pull request                    pause for review, then open the PR
+Actions → SDLC Pipeline → Run workflow (idea), or an issue labelled "sdlc"      one run, one line
+  1 · Ollama writes intent.md → ✋ → 2 · spec.md → ✋ → 3 · plan.md → ✋
+  4 · ⏸ Hand off and wait for the build     tags sdlc/<feature>/approved, then waits
+        the builder: Claude Code (builder=claude) or a person (builder=human)
+        for each phase: phase/<feature>/<n> → PR into feature/<feature> → SDLC Phase Check → merge
+        when build-log.md logs every phase, the same run carries on:
+  5 · Verify the build → 5 · Ollama reviews the build → 6 · ✋ Open the pull request
 ```
 
-Everything lands on one branch, `feature/<feature>`, in
-`sdlc/features/<feature>/`. The ✋ jobs wait on a GitHub environment with a
-required reviewer, so the run pauses there until you approve. Waiting jobs use
-no runner minutes, and a pause can last up to 30 days.
+Everything lands on one branch, `feature/<feature>`, in `sdlc/features/<feature>/`.
+The ✋ jobs wait on the `sdlc-review` environment, so the run pauses at each one
+until you approve. Waiting there uses no runner minutes. Step 4 doesn't use a
+gate: it is a job that polls the feature branch for up to three hours after
+you approve the plan.
 
 ## Setup (once)
 
-1. **Settings → Environments → New environment** `sdlc-review`. Tick
-   **Required reviewers** and add yourself. (Leave "Prevent self-review" off.)
+1. **Settings → Environments →** `sdlc-review` **→ Required reviewers**: add
+   yourself. (Leave "Prevent self-review" off.)
 2. **Settings → Actions → General → Allow GitHub Actions to create and approve
    pull requests**, or add an `SDLC_PR_TOKEN` secret (a fine-grained token with
    contents and pull requests write). With the token, CI also runs on the PR.
-3. `OLLAMA_API_KEY` is already a secret. Optional variables: `OLLAMA_MODEL`
-   (default `deepseek-v4-flash:cloud`) and `OLLAMA_THINK` (`false` to stop a
-   reasoning model thinking for minutes).
+   With neither, step 6 fails but prints the pull request's title and body in
+   its log, so it can be opened by hand.
+3. `OLLAMA_API_KEY` secret. Optional variables: `OLLAMA_MODEL` (default
+   `deepseek-v4-flash:cloud`) and `OLLAMA_THINK` (`false` stops a reasoning
+   model thinking for minutes).
+4. For issue starts, an `sdlc` label. Only people with triage or write access
+   can add it, so outside issues can't start a run.
 
 ## Run a feature
 
-1. **Actions → SDLC Pipeline → Run workflow.** Type the idea, leave the rest
-   empty. The run is named `SDLC · <idea> · from auto`.
+1. **Start.** Run **SDLC Pipeline** with an idea and a builder, or open an issue
+   labelled `sdlc` whose title is the idea.
 2. **At each ✋ Review job**, open the run. The job before it shows the new
    document in its summary with **View** and **Edit on the branch** links. Edit
    it there if it needs changing, then **Review deployments → Approve**. The next
    stage reads the branch after you approve, so it sees your edits. **Reject**
    stops the run.
-3. **At "4 · ✋ Build it, then approve"**, build the plan locally:
-
-   ```bash
-   git fetch origin && git switch feature/<feature>
-   claude    # then: "use sdlc-build to build phase 1 of <feature>"
-   ```
-
-   The `sdlc-build` skill implements one phase, keeps to its targets, runs its
-   Verify commands and this check, logs the phase in `build-log.md`, commits and
-   stops for your review:
-
-   ```bash
-   python .github/actions/sdlc-stage/sdlc_stage.py verify --feature <feature> --phase 1 \
-     --test-command "uv run pytest -q --ignore=sample-client"
-   ```
-
-   Push each phase. When all are done, approve the Build job.
-4. **Verify** checks the whole branch against the plan. **6 · ✋ Open the pull request**
-   runs only after verification passes, pausing on `sdlc-review` so you can inspect
-   the verification report before approving. Once approved, it opens the pull request.
-
-## Other ways to start
+3. **Build, while step 4 waits.** Step 4 freezes the approved documents as the
+   `sdlc/<feature>/approved` tag, lists the phases in its summary, and waits.
+   - *Claude Code:* with the `sdlc-github` skill (a claude.ai account skill, not
+     part of this repository), say "use sdlc-github to build feature
+     `<feature>`" in a session on this repository, or give it an idea and it
+     opens the `sdlc` issue itself. It builds each phase on its own branch and
+     pull request, waits for the Phase check before it merges, and reports the
+     pull request step 6 opens.
+   - *A person:* follow the hand-off summary. Build each phase, run the local
+     check it prints, and push, either straight to `feature/<feature>` or through
+     `phase/<feature>/<n>` pull requests, which get the Phase check. Add a
+     `## Phase <n>: ...` section to `build-log.md` for each phase; the plan's
+     "Hand back" section says what goes in it.
+4. **Carry on.** When `build-log.md` logs every phase, step 4 finishes and the
+   same run verifies the whole branch and has Ollama review the diff against
+   the spec. **6 · ✋ Open the pull request** pauses so you can read the
+   verification report and the review, then opens the pull request into `main`.
+   If step 4 stopped waiting first, run it again with the feature and start
+   `build`.
 
 | Run workflow with | Does |
 | :-- | :-- |
 | idea | a new feature, numbered after the highest existing one |
-| idea + feature | revises that feature's intent (with a warning), then spec and plan again |
-| feature | the first missing document, or straight to the Build gate if all three exist |
-| feature + start | that stage onwards: `spec`, `plan`, or `build` to verify an existing build |
+| idea + feature | revises that feature's intent, then spec and plan again, and re-freezes |
+| feature | the first missing document, or the build run if all three exist |
+| feature + start | that stage onwards: `spec` or `plan` redoes the design, `build` runs only steps 5-6 |
+| an issue labelled `sdlc` | the title is the idea; `feature: <name>` in the body revises that feature, and with `start: build` runs only steps 5-6 |
 
-## What the plan must contain
+Features 002-004 were designed by the old workflow and have no approved tag.
+To build one, merge `main` into its branch (so its phase pull requests get the
+Phase check), then run it with the feature and start `plan`, which redoes the
+plan and freezes it.
 
-`plan.md` uses the markers from `deterministic-coding/phase_check.py`:
+## What the checks hold the builder to
 
-```markdown
-## Phase 1: word count on MarkdownFile
-<!-- phase: 1 -->
-<!-- targets: md_mcp/scanner.py, tests/test_word_count.py -->
-<!-- frozen: tests/test_read_file.py -->
-**Definition of done:**
-- [ ] `tests/test_word_count.py::test_frontmatter_excluded`: spec behaviour 1
-**Verify:**
-    uv run pytest tests/test_word_count.py -v   (in a bash fence)
-```
-
-It also needs a **Coverage** table with one row per "Done when" item in
-`intent.md`, so a plan can't quietly drop part of the intent: an item it can't
-deliver is marked `NOT COVERED` for you to see at the review. If the model
-leaves out a marker, a checklist, a Verify block or a coverage row, the stage
-asks it once more, then flags what is still missing in the run summary.
+- **The approved plan.** Verification reads `plan.md` from the
+  `sdlc/<feature>/approved` tag and fails if `intent.md`, `spec.md` or `plan.md`
+  changed on the branch. A plan that can't be built gets regenerated by the plan
+  stage, never edited by the builder.
+- **Scope.** A changed file outside the phase's `targets`, or any `frozen` file,
+  fails. `build-log.md` is the builder's own and is exempt.
+- **Tests.** Each phase's Verify block and the whole suite
+  (`python -m pytest -q --ignore=sample-client`) must exit zero, and a suite
+  that collects no tests fails.
+- **Coverage.** The plan has a row for every "Done when" item in `intent.md`; one
+  it can't deliver is marked `NOT COVERED`, for you to see at the plan review.
+- **Ollama's review** of the build is advisory. It goes into the pull request.
 
 ## Guard rails
 
 - **No model-written code runs in Actions.** The model writes documents; people
-  approve them and build the code.
-- **Scope is mechanical.** Verify fails if the branch changes a file outside
-  every phase's `targets`, or any `frozen` file.
+  approve them, and the builder writes the code.
 - **"Tests pass" is an exit code**, from each phase's Verify block and the whole
   suite, never anyone's opinion.
-- **Permissions per job.** Document jobs can push to the feature branch only;
-  Verify is read-only; only the last job can open a pull request.
+- **Permissions per job.** Only the document jobs and step 4 (which pushes the
+  tag) can write to the repository; verification, the review and the Phase
+  check are read-only; only the last job can open a pull request.
 
 ## Known limits
 
-- Environments with required reviewers need a public repository or a paid plan.
 - An approval comment doesn't reach the next stage. To steer a stage, edit the
   document on the branch before approving.
 - The Verify commands come from the approved plan and run on the runner, so

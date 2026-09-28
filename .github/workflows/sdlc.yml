@@ -1,18 +1,27 @@
 name: SDLC Pipeline
 
-# One run per feature: idea -> intent.md -> spec.md -> plan.md, pausing for a
-# person after each, then waiting while a person builds the plan, then checking
-# the build and opening one pull request. See sdlc/README.md.
+# One run, one line: idea -> intent.md -> spec.md -> plan.md (Ollama Cloud) ->
+# ⏸ build (Claude Code or a person; step 4 waits for it) -> verify -> Ollama
+# review -> pull request. The pipeline itself is the reusable workflow in
+# ly2xxx/.github; see sdlc/README.md for how to run it.
 #
-# One-time setup:
-#   Settings -> Environments -> New environment "sdlc-review" -> Required reviewers:
-#     add yourself. Every "Review" job below waits there until a reviewer approves.
-#   Settings -> Actions -> General -> "Allow GitHub Actions to create and approve
-#     pull requests" (or an SDLC_PR_TOKEN secret, which also lets CI run on the PR).
-#   Secrets and variables -> Actions:
-#     OLLAMA_API_KEY (secret), OLLAMA_MODEL and OLLAMA_THINK (optional variables).
+#   Start it: Run workflow with an idea, or open an issue labelled "sdlc" (title
+#     = idea; "feature: <name>" in the body revises that feature, and with
+#     "start: build" runs only steps 5-6). Claude Code can open issues but can't
+#     start runs, which is why the issue trigger exists. Only people with triage
+#     or write access can add the label, so outside issues don't start runs.
+#   Each ✋ job waits on the sdlc-review environment until a reviewer approves.
+#   Step 4 waits up to 3 hours until build-log.md on the feature branch logs
+#     every phase, then the same run verifies, reviews and opens the PR.
+#
+# One-time setup (Settings):
+#   Environments -> sdlc-review -> Required reviewers: add yourself.
+#   Secrets and variables -> Actions: OLLAMA_API_KEY (secret); OLLAMA_MODEL and
+#     OLLAMA_THINK (optional variables).
+#   Actions -> General -> "Allow GitHub Actions to create and approve pull
+#     requests", or an SDLC_PR_TOKEN secret, which also lets CI run on the PR.
 
-run-name: "SDLC · ${{ inputs.feature || inputs.idea }} · from ${{ inputs.start }}"
+run-name: "SDLC · ${{ inputs.feature || inputs.idea || github.event.issue.title }} · from ${{ inputs.start || 'issue' }} · ${{ inputs.builder || 'claude' }}"
 
 on:
   workflow_dispatch:
@@ -21,197 +30,38 @@ on:
         description: "Idea (one line). Starts a new feature, or revises the feature named below."
         required: false
       feature:
-        description: "Existing feature folder under sdlc/features. Leave empty for a new idea."
+        description: "Existing feature folder under sdlc/features. Alone, once built, it runs verify and opens the PR."
         required: false
       start:
-        description: "Where to start. auto = intent with an idea, else the first missing artifact."
+        description: "Where to start. auto = intent with an idea, else the first missing document, else the build run."
         type: choice
         options: [auto, intent, spec, plan, build]
         default: auto
+      builder:
+        description: "Who builds at step 4."
+        type: choice
+        options: [claude, human]
+        default: claude
+  issues:
+    types: [labeled]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
-permissions: {}
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-  resolve:
-    name: Resolve the feature
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      feature: ${{ steps.r.outputs.feature }}
-      branch: ${{ steps.r.outputs.branch }}
-      intent: ${{ steps.r.outputs.intent }}
-      spec: ${{ steps.r.outputs.spec }}
-      plan: ${{ steps.r.outputs.plan }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: r
-        uses: ly2xxx/.github/actions/sdlc-stage@main
-        with:
-          command: resolve
-          idea: ${{ inputs.idea }}
-          feature: ${{ inputs.feature }}
-          start: ${{ inputs.start }}
-
-  # ------------------------------------------------------------------ intent
-  intent:
-    name: "1 · Write intent.md"
-    needs: resolve
-    if: needs.resolve.outputs.intent == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: write       # pushes the artifact to the feature branch
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: ly2xxx/.github/actions/sdlc-stage@main
-        with:
-          command: stage
-          stage: intent
-          idea: ${{ inputs.idea }}
-          feature: ${{ needs.resolve.outputs.feature }}
-          model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
-          think: ${{ vars.OLLAMA_THINK }}
-          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
-
-  review-intent:
-    name: "✋ Review intent.md"
-    needs: [resolve, intent]
-    runs-on: ubuntu-latest
-    environment: sdlc-review
-    steps:
-      - run: echo "intent.md approved by ${{ github.actor }}. Continuing with spec."
-
-  # ------------------------------------------------------------------ spec
-  spec:
-    name: "2 · Write spec.md"
-    needs: [resolve, review-intent]
-    if: ${{ !cancelled() && !failure() && needs.resolve.outputs.spec == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: ly2xxx/.github/actions/sdlc-stage@main
-        with:
-          command: stage
-          stage: spec
-          feature: ${{ needs.resolve.outputs.feature }}
-          model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
-          think: ${{ vars.OLLAMA_THINK }}
-          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
-
-  review-spec:
-    name: "✋ Review spec.md"
-    needs: [resolve, spec]
-    runs-on: ubuntu-latest
-    environment: sdlc-review
-    steps:
-      - run: echo "spec.md approved by ${{ github.actor }}. Continuing with plan."
-
-  # ------------------------------------------------------------------ plan
-  plan:
-    name: "3 · Write plan.md (phases)"
-    needs: [resolve, review-spec]
-    if: ${{ !cancelled() && !failure() && needs.resolve.outputs.plan == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: ly2xxx/.github/actions/sdlc-stage@main
-        with:
-          command: stage
-          stage: plan
-          feature: ${{ needs.resolve.outputs.feature }}
-          model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
-          think: ${{ vars.OLLAMA_THINK }}
-          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
-
-  review-plan:
-    name: "✋ Review plan.md"
-    needs: [resolve, plan]
-    runs-on: ubuntu-latest
-    environment: sdlc-review
-    steps:
-      - run: echo "plan.md approved by ${{ github.actor }}. Build it phase by phase on ${{ needs.resolve.outputs.branch }}."
-
-  # ------------------------------------------------------------------ build (a person)
-  build:
-    name: "4 · ✋ Build it, then approve"
-    needs: [resolve, review-plan]
-    if: ${{ !cancelled() && !failure() }}
-    runs-on: ubuntu-latest
-    environment: sdlc-review
-    steps:
-      - run: echo "Build reported done by ${{ github.actor }}. Verifying ${{ needs.resolve.outputs.branch }}."
-
-  verify:
-    name: "5 · Verify the build"
-    needs: [resolve, build]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read        # runs the built code and the plan's commands; writes nothing
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve.outputs.branch }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@v5
-      - name: Install the project
-        run: uv venv --python 3.12 && uv pip install -e . pytest
-      - uses: ly2xxx/.github/actions/sdlc-stage@main
-        with:
-          command: verify
-          feature: ${{ needs.resolve.outputs.feature }}
-          base: ${{ github.ref_name }}
-          test-command: uv run pytest -q --ignore=sample-client
-          report: ${{ runner.temp }}/verify-report.md
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: verify-report
-          path: ${{ runner.temp }}/verify-report.md
-          if-no-files-found: ignore
-
-  pr:
-    name: "6 · ✋ Open the pull request"
-    needs: [resolve, verify]
-    if: ${{ !cancelled() && needs.verify.result == 'success' }}
-    runs-on: ubuntu-latest
-    environment: sdlc-review
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve.outputs.branch }}
-      - uses: actions/download-artifact@v4
-        with:
-          name: verify-report
-          path: ${{ runner.temp }}
-      - uses: ly2xxx/.github/actions/sdlc-stage@main
-        env:
-          VERIFY_PASSED: ${{ needs.verify.result == 'success' }}
-        with:
-          command: pr
-          feature: ${{ needs.resolve.outputs.feature }}
-          base: ${{ github.ref_name }}
-          report: ${{ runner.temp }}/verify-report.md
-          github-token: ${{ secrets.SDLC_PR_TOKEN || github.token }}
+  sdlc:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'sdlc'
+    uses: ly2xxx/.github/.github/workflows/sdlc.yml@main
+    with:
+      idea: ${{ inputs.idea || github.event.issue.title || '' }}
+      feature: ${{ inputs.feature }}
+      start: ${{ inputs.start }}
+      builder: ${{ inputs.builder }}
+      model: ${{ vars.OLLAMA_MODEL || 'deepseek-v4-flash:cloud' }}
+      think: ${{ vars.OLLAMA_THINK || '' }}
+      test-command: python -m pytest -q --ignore=sample-client
+      build-wait-minutes: 180
+    secrets:
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+      SDLC_PR_TOKEN: ${{ secrets.SDLC_PR_TOKEN }}

@@ -1,0 +1,18 @@
+name: SDLC Phase Check
+
+# Checks one built phase (a pull request from phase/<feature>/<n> into
+# feature/<feature>) against the approved plan before it is merged. The check
+# lives in ly2xxx/.github; see sdlc/README.md.
+
+on:
+  pull_request:
+    branches: ["feature/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  phase:
+    uses: ly2xxx/.github/.github/workflows/sdlc-phase.yml@main
+    with:
+      test-command: python -m pytest -q --ignore=sample-client
