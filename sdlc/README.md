@@ -24,8 +24,14 @@ you approve the plan.
 
 ## Setup (once)
 
-1. **Settings → Environments →** `sdlc-review` **→ Required reviewers**: add
-   yourself. (Leave "Prevent self-review" off.)
+1. **Turn on HITL approval (Settings → Environments):**
+   - Click **New environment** and name it `sdlc-review`:
+
+     ![Create sdlc-review environment](HITL/sdlc-review.png)
+
+   - Under **Deployment protection rules**, check **Required reviewers** and add yourself as a reviewer. Leave **Prevent self-review** unchecked (so you can approve runs triggered by your own actions), then click **Save protection rules**:
+
+     ![Configure Required reviewers protection rules](HITL/sdlc-review_hitl.png)
 2. **Settings → Actions → General → Allow GitHub Actions to create and approve
    pull requests**, or add an `SDLC_PR_TOKEN` secret (a fine-grained token with
    contents and pull requests write). With the token, CI also runs on the PR.
