@@ -62,3 +62,7 @@ include = ["md_mcp*"]
 
 [tool.setuptools.package-data]
 "md_mcp.web" = ["templates/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
